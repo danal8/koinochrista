@@ -82,7 +82,8 @@
   tr:last-child td { border-bottom: none; }
 
   .badge {
-    display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+    display: inline-block; padding: 5px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    text-align: center; white-space: nowrap;
   }
   .badge.pending { background: var(--amber-light); color: var(--amber); }
   .badge.paid { background: var(--teal-light); color: var(--teal-dark); }
@@ -115,21 +116,25 @@
   .save-status { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
 
   .due-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 14px 4px; border-bottom: 1px solid var(--border); flex-wrap: wrap;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 16px 4px; border-bottom: 1px solid var(--border);
   }
   .due-row:last-child { border-bottom: none; }
-  .due-info { display: flex; flex-direction: column; gap: 2px; min-width: 120px; flex: 1; }
-  .due-name { font-weight: 600; font-size: 14px; }
-  .due-tenant { font-size: 12px; color: var(--text-muted); }
-  .due-amount-status { display: flex; align-items: center; gap: 10px; }
-  .due-amount { font-weight: 600; font-size: 16px; color: var(--teal-dark); white-space: nowrap; }
-  .due-actions { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
-  .due-actions button.action { flex: 1; min-width: 0; padding: 8px 6px; font-size: 12px; }
+  .due-name { font-weight: 600; font-size: 17px; line-height: 1.3; }
+  .due-amount-status {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+  }
+  .due-amount { font-weight: 700; font-size: 19px; color: var(--teal-dark); white-space: nowrap; }
+  .due-actions { display: flex; gap: 8px; width: 100%; }
+  .due-actions button.action { flex: 1; min-width: 0; padding: 10px 6px; font-size: 13px; }
 
   @media (min-width: 640px) {
-    .due-row { flex-wrap: nowrap; }
-    .due-actions { width: auto; flex-wrap: nowrap; }
+    .due-row {
+      flex-direction: row; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .due-name { flex: 1; font-size: 15px; }
+    .due-amount-status { width: auto; gap: 14px; }
+    .due-actions { width: auto; }
     .due-actions button.action { flex: none; }
   }
 </style>
@@ -503,9 +508,7 @@ function renderDashboard() {
          <button class="action" onclick="markPaid(${apt.id},'IRIS')">IRIS</button>
          <button class="action secondary" onclick="remind(${apt.id})">Υπενθύμιση</button>`;
     return `<div class="due-row">
-      <div class="due-info">
-        <span class="due-name">${apt.name}${apt.tenant ? ' — ' + apt.tenant : ''}</span>
-      </div>
+      <span class="due-name">${apt.name}${apt.tenant ? ' — ' + apt.tenant : ''}</span>
       <div class="due-amount-status">
         <span class="due-amount">€${due.toFixed(2)}</span>
         ${badge}
