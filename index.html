@@ -155,6 +155,13 @@
           <label>Ποσό (€)</label>
           <input type="number" id="expAmount" step="0.01" placeholder="0.00">
         </div>
+        <div>
+          <label>Τρόπος επιμερισμού</label>
+          <select id="expSplitMode">
+            <option value="shares">Με χιλιοστά κατηγορίας</option>
+            <option value="equal">Εξίσου σε όλα τα διαμερίσματα</option>
+          </select>
+        </div>
       </div>
       <button class="action" onclick="addExpense()">+ Προσθήκη εξόδου</button>
       <span class="save-status" id="expSaveStatus"></span>
@@ -168,7 +175,7 @@
     <div class="card">
       <h2>Έξοδα μήνα</h2>
       <table>
-        <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th></th></tr></thead>
+        <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th>Επιμερισμός</th><th></th></tr></thead>
         <tbody id="expensesTableBody"></tbody>
       </table>
       <div id="expensesEmpty" class="empty hidden">Δεν υπάρχουν έξοδα καταχωρημένα για αυτόν τον μήνα.</div>
@@ -191,6 +198,13 @@
           <label>Ποσό (€)</label>
           <input type="number" id="fixedAmount" step="0.01" placeholder="0.00">
         </div>
+        <div>
+          <label>Τρόπος επιμερισμού</label>
+          <select id="fixedSplitMode">
+            <option value="shares">Με χιλιοστά κατηγορίας</option>
+            <option value="equal">Εξίσου σε όλα τα διαμερίσματα</option>
+          </select>
+        </div>
       </div>
       <button class="action" onclick="addFixedExpense()">+ Προσθήκη σταθερού εξόδου</button>
       <span class="save-status" id="fixedSaveStatus"></span>
@@ -198,7 +212,7 @@
     <div class="card">
       <h2>Λίστα σταθερών εξόδων</h2>
       <table>
-        <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th></th></tr></thead>
+        <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th>Επιμερισμός</th><th></th></tr></thead>
         <tbody id="fixedTableBody"></tbody>
       </table>
       <div id="fixedEmpty" class="empty hidden">Δεν έχεις καταχωρήσει σταθερά έξοδα ακόμα.</div>
@@ -395,9 +409,17 @@ function computeDues(key) {
   const month = ensureMonth(key);
   const totalsByCategory = {};
   CATEGORIES.forEach(c => totalsByCategory[c] = 0);
-  month.expenses.forEach(e => { totalsByCategory[e.category] = (totalsByCategory[e.category] || 0) + Number(e.amount); });
+  let equalSplitTotal = 0;
+  month.expenses.forEach(e => {
+    if (e.splitMode === 'equal') {
+      equalSplitTotal += Number(e.amount);
+    } else {
+      totalsByCategory[e.category] = (totalsByCategory[e.category] || 0) + Number(e.amount);
+    }
+  });
 
   const { gasDues } = computeGasBreakdown(key);
+  const equalSharePerApt = state.apartments.length > 0 ? equalSplitTotal / state.apartments.length : 0;
 
   const dues = {};
   state.apartments.forEach(apt => {
@@ -407,16 +429,17 @@ function computeDues(key) {
       total += (totalsByCategory[c] || 0) * pct;
     });
     total += gasDues[apt.id] || 0;
+    total += equalSharePerApt;
     dues[apt.id] = total;
   });
-  return { dues, totalsByCategory, gasDues };
+  return { dues, totalsByCategory, gasDues, equalSplitTotal, equalSharePerApt };
 }
 
 function renderDashboard() {
   const key = monthKey(currentMonth);
   const month = ensureMonth(key);
-  const { dues, totalsByCategory } = computeDues(key);
-  const totalExpenses = Object.values(totalsByCategory).reduce((a,b)=>a+b, 0) + (Number(month.gas.totalBill) || 0);
+  const { dues, totalsByCategory, equalSplitTotal } = computeDues(key);
+  const totalExpenses = Object.values(totalsByCategory).reduce((a,b)=>a+b, 0) + (Number(month.gas.totalBill) || 0) + equalSplitTotal;
   const totalCollected = state.apartments.reduce((sum, apt) => {
     const p = month.payments[apt.id];
     return sum + (p && p.status === 'paid' ? dues[apt.id] : 0);
@@ -467,6 +490,7 @@ function renderExpenses() {
       <td>${e.category}</td>
       <td>${e.description}</td>
       <td class="amount">€${Number(e.amount).toFixed(2)}</td>
+      <td>${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</td>
       <td><button class="action danger" onclick="deleteExpense(${idx})">Διαγραφή</button></td>
     </tr>
   `).join('');
@@ -486,6 +510,7 @@ function renderFixed() {
       <td>${e.category}</td>
       <td>${e.description}</td>
       <td class="amount">€${Number(e.amount).toFixed(2)}</td>
+      <td>${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</td>
       <td><button class="action danger" onclick="deleteFixedExpense(${idx})">Διαγραφή</button></td>
     </tr>
   `).join('');
@@ -495,11 +520,12 @@ function addFixedExpense() {
   const category = document.getElementById('fixedCategory').value;
   const description = document.getElementById('fixedDesc').value.trim();
   const amount = parseFloat(document.getElementById('fixedAmount').value);
+  const splitMode = document.getElementById('fixedSplitMode').value;
   if (!description || isNaN(amount) || amount <= 0) {
     alert('Συμπλήρωσε περιγραφή και έγκυρο ποσό.');
     return;
   }
-  state.fixedExpenses.push({ category, description, amount });
+  state.fixedExpenses.push({ category, description, amount, splitMode });
   document.getElementById('fixedDesc').value = '';
   document.getElementById('fixedAmount').value = '';
   render();
@@ -517,7 +543,7 @@ function applyFixedExpenses() {
   state.fixedExpenses.forEach(fe => {
     const alreadyThere = month.expenses.some(e => e.description === fe.description && e.category === fe.category && e.fromFixed);
     if (!alreadyThere) {
-      month.expenses.push({ category: fe.category, description: fe.description, amount: fe.amount, fromFixed: true });
+      month.expenses.push({ category: fe.category, description: fe.description, amount: fe.amount, splitMode: fe.splitMode, fromFixed: true });
       addedCount++;
     }
   });
@@ -721,13 +747,14 @@ function addExpense() {
   const category = document.getElementById('expCategory').value;
   const description = document.getElementById('expDesc').value.trim();
   const amount = parseFloat(document.getElementById('expAmount').value);
+  const splitMode = document.getElementById('expSplitMode').value;
   if (!description || isNaN(amount) || amount <= 0) {
     alert('Συμπλήρωσε περιγραφή και έγκυρο ποσό.');
     return;
   }
   const key = monthKey(currentMonth);
   const month = ensureMonth(key);
-  month.expenses.push({ category, description, amount });
+  month.expenses.push({ category, description, amount, splitMode });
   document.getElementById('expDesc').value = '';
   document.getElementById('expAmount').value = '';
   render();
