@@ -99,14 +99,33 @@
   }
   .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--teal-dark); }
 
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--teal-light); border-radius: 8px; overflow: hidden; }
   .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
   .table-wrap table { min-width: 460px; }
   .table-wrap.compact table { min-width: 0; table-layout: fixed; }
   .table-wrap.compact { overflow-x: visible; }
-  th { text-align: left; padding: 8px; color: var(--text-muted); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border); }
+  th { text-align: left; padding: 8px; color: var(--text-muted); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border); background: var(--teal-light); }
   td { padding: 8px; border-bottom: 1px solid var(--border); word-break: break-word; }
+  tr:nth-child(odd) td { background: rgba(255,255,255,0.55); }
+  tr:nth-child(even) td { background: transparent; }
   tr:last-child td { border-bottom: none; }
+
+  /* Mobile card layout for the month expenses (replaces cramped table on small screens) */
+  .expenses-cards { display: none; }
+  .expense-card {
+    background: var(--teal-light); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; margin-bottom: 10px;
+  }
+  .expense-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .expense-card-category { font-size: 12px; font-weight: 600; color: var(--teal-dark); text-transform: uppercase; letter-spacing: 0.3px; }
+  .expense-card-desc { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .expense-card-bottom { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .expense-card-split { font-size: 12px; color: var(--text-muted); }
+
+  @media (max-width: 639px) {
+    .expenses-cards { display: block; }
+    .expenses-table-desktop { display: none; }
+  }
 
   .badge {
     display: inline-block; padding: 5px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;
@@ -177,6 +196,35 @@
   .settings-section { margin-bottom: 24px; }
   .settings-section:last-child { margin-bottom: 0; }
   .settings-section h3 { font-size: 14px; color: var(--teal-dark); margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+  .theme-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 14px; cursor: default; }
+  .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--border); border-radius: 26px; transition: 0.2s;
+  }
+  .switch .slider:before {
+    position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px;
+    background-color: white; border-radius: 50%; transition: 0.2s;
+  }
+  .switch input:checked + .slider { background-color: var(--teal); }
+  .switch input:checked + .slider:before { transform: translateX(20px); }
+
+  /* ---------- Dark mode ---------- */
+  body.dark {
+    --bg: #23262B;
+    --card: #2C3036;
+    --border: #3A3F46;
+    --text: #E7E6E2;
+    --text-muted: #9A9DA3;
+    --teal-light: #2E3A38;
+    --red-light: #3A2C2A;
+    --amber-light: #3A3323;
+  }
+  body.dark tr:nth-child(odd) td { background: rgba(255,255,255,0.03); }
+  body.dark input, body.dark select { background: var(--card); color: var(--text); }
+  body.dark .switch .slider:before { background-color: #E7E6E2; }
 </style>
 </head>
 <body>
@@ -194,8 +242,8 @@
   <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Πίνακας μήνα</button>
   <button class="tab" data-tab="expenses" onclick="switchTab('expenses')">Έξοδα</button>
   <button class="tab" data-tab="gas" onclick="switchTab('gas')">Φυσικό αέριο</button>
-  <button class="tab" data-tab="settings" onclick="switchTab('settings')">Ρυθμίσεις</button>
   <button class="tab" data-tab="maintenance" onclick="switchTab('maintenance')">Συντήρηση</button>
+  <button class="tab" data-tab="settings" onclick="switchTab('settings')">Ρυθμίσεις</button>
 </div>
 
 <main>
@@ -243,7 +291,8 @@
     </div>
     <div class="card">
       <h2>Έξοδα μήνα</h2>
-      <div class="table-wrap compact">
+      <div id="expensesCardsMobile" class="expenses-cards"></div>
+      <div class="table-wrap compact expenses-table-desktop">
       <table>
         <colgroup>
           <col style="width:20%">
@@ -290,7 +339,52 @@
     </div>
   </div>
 
+  <div id="tab-maintenance" class="hidden">
+    <div class="card">
+      <h2>Νέα υπενθύμιση συντήρησης</h2>
+      <div class="form-row">
+        <div>
+          <label>Εργασία</label>
+          <input type="text" id="maintName" placeholder="π.χ. Απεντόμωση">
+        </div>
+        <div>
+          <label>Επόμενη ημερομηνία</label>
+          <input type="date" id="maintDate">
+        </div>
+        <div>
+          <label>Επανάληψη (μήνες, προαιρετικό)</label>
+          <input type="number" id="maintRepeat" placeholder="π.χ. 6">
+        </div>
+      </div>
+      <button class="action" onclick="addMaintenance()">+ Προσθήκη υπενθύμισης</button>
+      <span class="save-status" id="maintSaveStatus"></span>
+    </div>
+    <div class="card">
+      <h2>Προσεχείς εργασίες</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Εργασία</th><th>Ημερομηνία</th><th>Κατάσταση</th><th></th></tr></thead>
+        <tbody id="maintenanceTableBody"></tbody>
+      </table>
+      </div>
+      <div id="maintenanceEmpty" class="empty hidden">Δεν υπάρχουν καταχωρημένες υπενθυμίσεις.</div>
+    </div>
+  </div>
+
   <div id="tab-settings" class="hidden">
+    <div class="settings-section">
+      <h3>Εμφάνιση</h3>
+      <div class="card">
+        <h2>Θέμα εφαρμογής</h2>
+        <label class="theme-toggle-row">
+          <span>Σκούρο θέμα (dark mode)</span>
+          <label class="switch">
+            <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </label>
+      </div>
+    </div>
     <div class="settings-section">
       <h3>Σταθερά έξοδα</h3>
       <div class="card">
@@ -348,38 +442,6 @@
     </div>
   </div>
 
-  <div id="tab-maintenance" class="hidden">
-    <div class="card">
-      <h2>Νέα υπενθύμιση συντήρησης</h2>
-      <div class="form-row">
-        <div>
-          <label>Εργασία</label>
-          <input type="text" id="maintName" placeholder="π.χ. Απεντόμωση">
-        </div>
-        <div>
-          <label>Επόμενη ημερομηνία</label>
-          <input type="date" id="maintDate">
-        </div>
-        <div>
-          <label>Επανάληψη (μήνες, προαιρετικό)</label>
-          <input type="number" id="maintRepeat" placeholder="π.χ. 6">
-        </div>
-      </div>
-      <button class="action" onclick="addMaintenance()">+ Προσθήκη υπενθύμισης</button>
-      <span class="save-status" id="maintSaveStatus"></span>
-    </div>
-    <div class="card">
-      <h2>Προσεχείς εργασίες</h2>
-      <div class="table-wrap">
-      <table>
-        <thead><tr><th>Εργασία</th><th>Ημερομηνία</th><th>Κατάσταση</th><th></th></tr></thead>
-        <tbody id="maintenanceTableBody"></tbody>
-      </table>
-      </div>
-      <div id="maintenanceEmpty" class="empty hidden">Δεν υπάρχουν καταχωρημένες υπενθυμίσεις.</div>
-    </div>
-  </div>
-
 </main>
 
 <script>
@@ -413,7 +475,8 @@ let state = {
       }
     }
   }, // Ιούνιος 2026 είναι ο πρώτος μήνας εγγραφών — δεν υπάρχει προηγούμενος μήνας, οπότε η διαφορά υπολογίζεται ως 0
-  maintenance: []
+  maintenance: [],
+  darkMode: false
 };
 
 let currentMonth = new Date();
@@ -455,6 +518,7 @@ async function loadData() {
   } catch (e) {
     console.log('Δεν βρέθηκαν αποθηκευμένα δεδομένα, ξεκινάμε με το προεπιλεγμένο σχήμα.', e);
   }
+  applyDarkModePreference();
   render();
 }
 
@@ -472,10 +536,22 @@ async function saveData(statusElId) {
   }
 }
 
+// ---------- Dark mode ----------
+function applyDarkModePreference() {
+  document.body.classList.toggle('dark', !!state.darkMode);
+  const toggle = document.getElementById('darkModeToggle');
+  if (toggle) toggle.checked = !!state.darkMode;
+}
+function toggleDarkMode(isDark) {
+  state.darkMode = isDark;
+  document.body.classList.toggle('dark', isDark);
+  saveData();
+}
+
 // ---------- Navigation ----------
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['dashboard','expenses','gas','settings','maintenance'].forEach(t => {
+  ['dashboard','expenses','gas','maintenance','settings'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
   });
 }
@@ -580,8 +656,10 @@ function renderExpenses() {
   const month = ensureMonth(key);
   const body = document.getElementById('expensesTableBody');
   const empty = document.getElementById('expensesEmpty');
+  const cardsMobile = document.getElementById('expensesCardsMobile');
   if (month.expenses.length === 0) {
     body.innerHTML = '';
+    cardsMobile.innerHTML = '';
     empty.classList.remove('hidden');
     return;
   }
@@ -599,6 +677,21 @@ function renderExpenses() {
         <span style="cursor:pointer; color:var(--red); font-size:16px" title="Διαγραφή" onclick="deleteExpense(${idx})">🗑</span>
       </td>
     </tr>
+  `).join('');
+
+  cardsMobile.innerHTML = month.expenses.map((e, idx) => `
+    <div class="expense-card">
+      <div class="expense-card-top">
+        <span class="expense-card-category">${e.category}</span>
+        <span style="cursor:pointer; color:var(--red); font-size:16px" title="Διαγραφή" onclick="deleteExpense(${idx})">🗑</span>
+      </div>
+      <div class="expense-card-desc">${e.description}</div>
+      <div class="expense-card-bottom">
+        <span class="amount">€${Number(e.amount).toFixed(2)}</span>
+        <span class="expense-card-split">${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</span>
+        <span class="badge ${e.paid ? 'paid' : 'pending'}" style="cursor:pointer" onclick="toggleExpensePaid(${idx})">${e.paid ? 'Εξοφλήθηκε' : 'Ανεξόφλητο'}</span>
+      </div>
+    </div>
   `).join('');
 }
 
