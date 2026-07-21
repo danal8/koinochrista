@@ -1,0 +1,25 @@
+{
+  "name": "Κοινόχρηστα Πολυκατοικίας",
+  "short_name": "Κοινόχρηστα",
+  "description": "Διαχείριση κοινοχρήστων, εξόδων και συντήρησης πολυκατοικίας",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F5F5F0",
+  "theme_color": "#085041",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

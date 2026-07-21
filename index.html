@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Κοινόχρηστα Πολυκατοικίας</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#085041">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Κοινόχρηστα">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -229,7 +236,7 @@
         </div>
       </div>
       <button class="action" onclick="saveGas()">Αποθήκευση</button>
-      <button class="action secondary" onclick="zeroGasReadings()">Μηδενισμός όλων (καλοκαιρινός μήνας)</button>
+      <button class="action secondary" onclick="zeroGasReadings()">Μηδενική κατανάλωση (πάγιο μόνο)</button>
       <span class="save-status" id="gasSaveStatus"></span>
     </div>
     <div class="card">
@@ -828,6 +835,12 @@ function deleteMaintenance(idx) {
 
 // ---------- Init ----------
 loadData();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed', err));
+  });
+}
 </script>
 </body>
 </html>
