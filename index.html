@@ -127,6 +127,27 @@
     .expenses-table-desktop { display: none; }
   }
 
+  /* Mobile card layout for settings tables (fixed expenses, apartments) */
+  .settings-cards { display: none; }
+  .settings-card {
+    background: var(--teal-light); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; margin-bottom: 10px;
+  }
+  .settings-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .settings-card-title { font-size: 12px; font-weight: 600; color: var(--teal-dark); text-transform: uppercase; letter-spacing: 0.3px; }
+  .settings-card-field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  .settings-card-field:last-child { margin-bottom: 0; }
+  .settings-card-field label { font-size: 11px; color: var(--text-muted); }
+  .settings-card-field.inline { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+  .settings-card-field.inline label { margin: 0; }
+  .settings-card-field.inline input { width: 90px; }
+  .settings-card-shares { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px,1fr)); gap: 8px; }
+
+  @media (max-width: 639px) {
+    .settings-cards { display: block; }
+    .settings-table-desktop { display: none; }
+  }
+
   .badge {
     display: inline-block; padding: 5px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;
     text-align: center; white-space: nowrap;
@@ -415,7 +436,8 @@
       </div>
       <div class="card">
         <h2>Λίστα σταθερών εξόδων</h2>
-        <div class="table-wrap">
+        <div id="fixedCardsMobile" class="settings-cards"></div>
+        <div class="table-wrap settings-table-desktop">
         <table>
           <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th>Επιμερισμός</th><th></th></tr></thead>
           <tbody id="fixedTableBody"></tbody>
@@ -430,7 +452,8 @@
       <div class="card">
         <h2>Διαμερίσματα και χιλιοστά ανά κατηγορία</h2>
         <p style="font-size:12px;color:var(--text-muted);margin-top:-6px">Τα ποσοστά ανά κατηγορία πρέπει να αθροίζουν σε 100%.</p>
-        <div class="table-wrap">
+        <div id="apartmentsCardsMobile" class="settings-cards"></div>
+        <div class="table-wrap settings-table-desktop">
         <table>
           <thead id="apartmentsHead"></thead>
           <tbody id="apartmentsTableBody"></tbody>
@@ -698,8 +721,10 @@ function renderExpenses() {
 function renderFixed() {
   const body = document.getElementById('fixedTableBody');
   const empty = document.getElementById('fixedEmpty');
+  const cardsMobile = document.getElementById('fixedCardsMobile');
   if (state.fixedExpenses.length === 0) {
     body.innerHTML = '';
+    cardsMobile.innerHTML = '';
     empty.classList.remove('hidden');
     return;
   }
@@ -712,6 +737,27 @@ function renderFixed() {
       <td>${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</td>
       <td><button class="action danger" onclick="deleteFixedExpense(${idx})">Διαγραφή</button></td>
     </tr>
+  `).join('');
+
+  cardsMobile.innerHTML = state.fixedExpenses.map((e, idx) => `
+    <div class="settings-card">
+      <div class="settings-card-top">
+        <span class="settings-card-title">${e.category}</span>
+        <button class="action danger" onclick="deleteFixedExpense(${idx})">Διαγραφή</button>
+      </div>
+      <div class="settings-card-field">
+        <label>Περιγραφή</label>
+        <div style="font-weight:600">${e.description}</div>
+      </div>
+      <div class="settings-card-field inline">
+        <label>Ποσό</label>
+        <span class="amount">€${Number(e.amount).toFixed(2)}</span>
+      </div>
+      <div class="settings-card-field inline">
+        <label>Επιμερισμός</label>
+        <span>${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</span>
+      </div>
+    </div>
   `).join('');
 }
 
@@ -922,6 +968,42 @@ function renderApartments() {
     <td colspan="3">Σύνολο</td>
     ${totals.map(t => `<td style="color:${Math.abs(t-100)>0.01 ? 'var(--red)' : 'var(--teal-dark)'}">${t.toFixed(1)}%</td>`).join('')}
   </tr>`;
+
+  // Mobile cards, one per apartment, with clearly labeled editable fields
+  const cardsMobile = document.getElementById('apartmentsCardsMobile');
+  cardsMobile.innerHTML = state.apartments.map(apt => `
+    <div class="settings-card">
+      <div class="settings-card-top">
+        <span class="settings-card-title">Διαμέρισμα</span>
+      </div>
+      <div class="settings-card-field">
+        <label>Όνομα</label>
+        <input type="text" value="${apt.name}" onchange="updateApt(${apt.id},'name',this.value)">
+      </div>
+      <div class="settings-card-field">
+        <label>Ένοικος</label>
+        <input type="text" value="${apt.tenant}" placeholder="όνομα ενοίκου" onchange="updateApt(${apt.id},'tenant',this.value)">
+      </div>
+      <div class="settings-card-field inline">
+        <label>Αρ. μετρητή</label>
+        <input type="number" value="${apt.meterNumber || ''}" onchange="updateApt(${apt.id},'meterNumber',this.value)">
+      </div>
+      <div class="settings-card-field">
+        <label>Χιλιοστά ανά κατηγορία (%)</label>
+        <div class="settings-card-shares">
+          ${CATEGORIES.map(c => `
+            <div>
+              <label style="font-size:10px">${c}</label>
+              <input type="number" step="0.01" value="${apt.shares[c]}" onchange="updateShare(${apt.id},'${c}',this.value)">
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('') + (() => {
+    const totalsText = CATEGORIES.map((c,i) => `${c}: <span style="color:${Math.abs(totals[i]-100)>0.01 ? 'var(--red)' : 'var(--teal-dark)'}">${totals[i].toFixed(1)}%</span>`).join(' &nbsp;·&nbsp; ');
+    return `<div class="settings-card" style="font-weight:600">${totalsText}</div>`;
+  })();
 }
 
 function renderMaintenance() {
