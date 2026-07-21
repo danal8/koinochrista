@@ -493,10 +493,11 @@ function renderExpenses() {
       <td>${e.description}</td>
       <td class="amount">€${Number(e.amount).toFixed(2)}</td>
       <td>${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</td>
-      <td>${e.paid ? `<span class="badge paid">Εξοφλήθηκε</span>` : `<span class="badge pending">Ανεξόφλητο</span>`}</td>
       <td>
-        <button class="action ${e.paid ? 'secondary' : ''}" onclick="toggleExpensePaid(${idx})">${e.paid ? 'Αναίρεση' : 'Σήμανση εξόφλησης'}</button>
-        <button class="action danger" onclick="deleteExpense(${idx})">Διαγραφή</button>
+        <span class="badge ${e.paid ? 'paid' : 'pending'}" style="cursor:pointer" title="Πάτα για αλλαγή κατάστασης" onclick="toggleExpensePaid(${idx})">${e.paid ? 'Εξοφλήθηκε' : 'Ανεξόφλητο'}</span>
+      </td>
+      <td style="text-align:center">
+        <span style="cursor:pointer; color:var(--red); font-size:16px" title="Διαγραφή" onclick="deleteExpense(${idx})">🗑</span>
       </td>
     </tr>
   `).join('');
