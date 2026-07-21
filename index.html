@@ -366,7 +366,7 @@ let state = {
         totalBill: 0
       }
     }
-  }, // key "YYYY-MM" -> { expenses: [...], payments: { aptId: {status, method, date} } }
+  }, // Ιούνιος 2026 είναι ο πρώτος μήνας εγγραφών — δεν υπάρχει προηγούμενος μήνας, οπότε η διαφορά υπολογίζεται ως 0
   maintenance: []
 };
 
@@ -624,7 +624,13 @@ function computeGasBreakdown(key) {
   let totalHours = 0;
   state.apartments.forEach(apt => {
     const current = Number(month.gas.readings[apt.id]) || 0;
-    const previous = prevMonth && prevMonth.gas ? (Number(prevMonth.gas.readings[apt.id]) || 0) : 0;
+    if (!prevMonth) {
+      // Δεν υπάρχει προηγούμενος μήνας καταγεγραμμένος καθόλου — πρόκειται για τον πρώτο μήνα
+      // εγγραφών, οπότε δεν υπάρχει βάση σύγκρισης· η κατανάλωση θεωρείται 0.
+      diffs[apt.id] = 0;
+      return;
+    }
+    const previous = prevMonth.gas ? (Number(prevMonth.gas.readings[apt.id]) || 0) : 0;
     const diff = Math.max(0, current - previous);
     diffs[apt.id] = diff;
     totalHours += diff;
