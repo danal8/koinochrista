@@ -118,6 +118,7 @@
 <div class="tabs">
   <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Πίνακας μήνα</button>
   <button class="tab" data-tab="expenses" onclick="switchTab('expenses')">Έξοδα</button>
+  <button class="tab" data-tab="fixed" onclick="switchTab('fixed')">Σταθερά έξοδα</button>
   <button class="tab" data-tab="apartments" onclick="switchTab('apartments')">Διαμερίσματα</button>
   <button class="tab" data-tab="maintenance" onclick="switchTab('maintenance')">Συντήρηση</button>
 </div>
@@ -158,12 +159,48 @@
       <span class="save-status" id="expSaveStatus"></span>
     </div>
     <div class="card">
+      <h2>Σταθερά έξοδα αυτού του μήνα</h2>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:-6px">Πρόσθεσε με ένα κλικ τα πάγια έξοδα (καθαρίστρια, ρεύμα κλπ.) που έχεις καταχωρήσει στην καρτέλα «Σταθερά έξοδα».</p>
+      <button class="action secondary" onclick="applyFixedExpenses()">Εφαρμογή σταθερών στον τρέχοντα μήνα</button>
+      <span class="save-status" id="applyFixedStatus"></span>
+    </div>
+    <div class="card">
       <h2>Έξοδα μήνα</h2>
       <table>
         <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th></th></tr></thead>
         <tbody id="expensesTableBody"></tbody>
       </table>
       <div id="expensesEmpty" class="empty hidden">Δεν υπάρχουν έξοδα καταχωρημένα για αυτόν τον μήνα.</div>
+    </div>
+  </div>
+
+  <div id="tab-fixed" class="hidden">
+    <div class="card">
+      <h2>Νέο σταθερό έξοδο</h2>
+      <div class="form-row">
+        <div>
+          <label>Κατηγορία</label>
+          <select id="fixedCategory"></select>
+        </div>
+        <div>
+          <label>Περιγραφή</label>
+          <input type="text" id="fixedDesc" placeholder="π.χ. Καθαρίστρια">
+        </div>
+        <div>
+          <label>Ποσό (€)</label>
+          <input type="number" id="fixedAmount" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <button class="action" onclick="addFixedExpense()">+ Προσθήκη σταθερού εξόδου</button>
+      <span class="save-status" id="fixedSaveStatus"></span>
+    </div>
+    <div class="card">
+      <h2>Λίστα σταθερών εξόδων</h2>
+      <table>
+        <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th></th></tr></thead>
+        <tbody id="fixedTableBody"></tbody>
+      </table>
+      <div id="fixedEmpty" class="empty hidden">Δεν έχεις καταχωρήσει σταθερά έξοδα ακόμα.</div>
     </div>
   </div>
 
@@ -219,17 +256,19 @@ const SUPABASE_KEY = 'sb_publishable_ch-7C1ihpZRrxEhXFqV1xA_hXPwq61S';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const TABLE = 'koinochrista_data'; // single-row JSON table, same pattern as other apps
 
-const CATEGORIES = ['Γενικά', 'Θέρμανση', 'Λοιπά'];
+const CATEGORIES = ['Κοινόχρηστα', 'Ασανσέρ', 'Θέρμανση'];
 
 let state = {
   apartments: [
-    { id: 1, name: 'Διαμ. 1', tenant: '', shares: { 'Γενικά': 0, 'Θέρμανση': 0, 'Λοιπά': 0 } },
-    { id: 2, name: 'Διαμ. 2', tenant: '', shares: { 'Γενικά': 0, 'Θέρμανση': 0, 'Λοιπά': 0 } },
-    { id: 3, name: 'Διαμ. 3', tenant: '', shares: { 'Γενικά': 0, 'Θέρμανση': 0, 'Λοιπά': 0 } },
-    { id: 4, name: 'Διαμ. 4', tenant: '', shares: { 'Γενικά': 0, 'Θέρμανση': 0, 'Λοιπά': 0 } },
-    { id: 5, name: 'Διαμ. 5', tenant: '', shares: { 'Γενικά': 0, 'Θέρμανση': 0, 'Λοιπά': 0 } },
-    { id: 6, name: 'Διαμ. 6', tenant: '', shares: { 'Γενικά': 0, 'Θέρμανση': 0, 'Λοιπά': 0 } }
+    { id: 1, name: 'Α1', tenant: 'Ασημακόπουλος', shares: { 'Κοινόχρηστα': 15.2, 'Ασανσέρ': 6.2, 'Θέρμανση': 18.6 } },
+    { id: 2, name: 'Α2', tenant: 'Μιτάκη Έφη', shares: { 'Κοινόχρηστα': 9.8, 'Ασανσέρ': 3.8, 'Θέρμανση': 10.6 } },
+    { id: 3, name: 'Β1', tenant: 'Στατζίδου Χρ.', shares: { 'Κοινόχρηστα': 15.2, 'Ασανσέρ': 12.3, 'Θέρμανση': 12.7 } },
+    { id: 4, name: 'Β2', tenant: 'Λαζάρη Χρ.', shares: { 'Κοινόχρηστα': 9.8, 'Ασανσέρ': 7.7, 'Θέρμανση': 7.2 } },
+    { id: 5, name: 'Γ1', tenant: 'Γεωργουσόπουλος Σ.', shares: { 'Κοινόχρηστα': 15.2, 'Ασανσέρ': 18.5, 'Θέρμανση': 12.3 } },
+    { id: 6, name: 'Δ', tenant: 'Δαναλάτος Γ.', shares: { 'Κοινόχρηστα': 25.0, 'Ασανσέρ': 40.0, 'Θέρμανση': 31.0 } },
+    { id: 7, name: 'Γ2', tenant: 'Κουφής Διον.', shares: { 'Κοινόχρηστα': 9.8, 'Ασανσέρ': 11.5, 'Θέρμανση': 7.6 } }
   ],
+  fixedExpenses: [], // [{category, description, amount}]
   months: {}, // key "YYYY-MM" -> { expenses: [...], payments: { aptId: {status, method, date} } }
   maintenance: []
 };
@@ -281,7 +320,7 @@ async function saveData(statusElId) {
 // ---------- Navigation ----------
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['dashboard','expenses','apartments','maintenance'].forEach(t => {
+  ['dashboard','expenses','fixed','apartments','maintenance'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
   });
 }
@@ -297,13 +336,15 @@ function render() {
   renderCategorySelect();
   renderDashboard();
   renderExpenses();
+  renderFixed();
   renderApartments();
   renderMaintenance();
 }
 
 function renderCategorySelect() {
-  const sel = document.getElementById('expCategory');
-  sel.innerHTML = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+  const options = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+  document.getElementById('expCategory').innerHTML = options;
+  document.getElementById('fixedCategory').innerHTML = options;
 }
 
 function computeDues(key) {
@@ -383,6 +424,62 @@ function renderExpenses() {
       <td><button class="action danger" onclick="deleteExpense(${idx})">Διαγραφή</button></td>
     </tr>
   `).join('');
+}
+
+function renderFixed() {
+  const body = document.getElementById('fixedTableBody');
+  const empty = document.getElementById('fixedEmpty');
+  if (state.fixedExpenses.length === 0) {
+    body.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  body.innerHTML = state.fixedExpenses.map((e, idx) => `
+    <tr>
+      <td>${e.category}</td>
+      <td>${e.description}</td>
+      <td class="amount">€${Number(e.amount).toFixed(2)}</td>
+      <td><button class="action danger" onclick="deleteFixedExpense(${idx})">Διαγραφή</button></td>
+    </tr>
+  `).join('');
+}
+
+function addFixedExpense() {
+  const category = document.getElementById('fixedCategory').value;
+  const description = document.getElementById('fixedDesc').value.trim();
+  const amount = parseFloat(document.getElementById('fixedAmount').value);
+  if (!description || isNaN(amount) || amount <= 0) {
+    alert('Συμπλήρωσε περιγραφή και έγκυρο ποσό.');
+    return;
+  }
+  state.fixedExpenses.push({ category, description, amount });
+  document.getElementById('fixedDesc').value = '';
+  document.getElementById('fixedAmount').value = '';
+  render();
+  saveData('fixedSaveStatus');
+}
+function deleteFixedExpense(idx) {
+  state.fixedExpenses.splice(idx, 1);
+  render();
+  saveData('fixedSaveStatus');
+}
+function applyFixedExpenses() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  let addedCount = 0;
+  state.fixedExpenses.forEach(fe => {
+    const alreadyThere = month.expenses.some(e => e.description === fe.description && e.category === fe.category && e.fromFixed);
+    if (!alreadyThere) {
+      month.expenses.push({ category: fe.category, description: fe.description, amount: fe.amount, fromFixed: true });
+      addedCount++;
+    }
+  });
+  render();
+  const statusEl = document.getElementById('applyFixedStatus');
+  statusEl.textContent = addedCount > 0 ? `Προστέθηκαν ${addedCount} έξοδα.` : 'Ήταν ήδη όλα προστεθημένα σε αυτόν τον μήνα.';
+  setTimeout(() => statusEl.textContent = '', 3000);
+  saveData();
 }
 
 function renderApartments() {
