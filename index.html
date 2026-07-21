@@ -495,10 +495,10 @@ function renderDashboard() {
     const payment = month.payments[apt.id] || { status: 'pending' };
     const due = dues[apt.id] || 0;
     const badge = payment.status === 'paid'
-      ? `<span class="badge paid">Πληρώθηκε${payment.method ? ' ('+payment.method+')' : ''}</span>`
+      ? `<span class="badge paid" style="cursor:pointer" title="Πάτα για αναίρεση" onclick="markPending(${apt.id})">Πληρώθηκε${payment.method ? ' ('+payment.method+')' : ''}</span>`
       : `<span class="badge pending">Εκκρεμεί</span>`;
     const actions = payment.status === 'paid'
-      ? `<button class="action secondary" onclick="markPending(${apt.id})">Αναίρεση</button>`
+      ? ''
       : `<button class="action" onclick="markPaid(${apt.id},'Μετρητά')">Μετρητά</button>
          <button class="action" onclick="markPaid(${apt.id},'IRIS')">IRIS</button>
          <button class="action secondary" onclick="remind(${apt.id})">Υπενθύμιση</button>`;
@@ -510,7 +510,7 @@ function renderDashboard() {
         <span class="due-amount">€${due.toFixed(2)}</span>
         ${badge}
       </div>
-      <div class="due-actions">${actions}</div>
+      ${actions ? `<div class="due-actions">${actions}</div>` : ''}
     </div>`;
   }).join('');
   document.getElementById('duesList').innerHTML = rows;
