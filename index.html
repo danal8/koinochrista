@@ -46,7 +46,7 @@
     align-items: center;
     gap: 10px;
   }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; align-self: flex-start; opacity: 0.9; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; align-self: center; opacity: 0.9; }
   .month-picker { display: flex; align-items: center; gap: 16px; }
   .month-picker button {
     background: rgba(255,255,255,0.15); border: none; color: white;
@@ -68,6 +68,31 @@
   .tab.active { color: var(--teal-dark); border-bottom-color: var(--teal); font-weight: 600; }
 
   main { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+  @media (min-width: 640px) {
+    header h1 { align-self: center; }
+    .tabs { justify-content: center; }
+  }
+
+  .reading-row {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 14px 4px; border-bottom: 1px solid var(--border);
+  }
+  .reading-row:last-child { border-bottom: none; }
+  .reading-meter { font-size: 12px; color: var(--text-muted); }
+  .reading-name { font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .reading-values { display: flex; gap: 16px; align-items: center; }
+  .reading-field { display: flex; flex-direction: column; gap: 3px; }
+  .reading-field label { font-size: 11px; color: var(--text-muted); }
+  .reading-field .static-value { font-size: 14px; padding: 6px 0; }
+  .reading-field input { width: 110px; }
+  .reading-diff { font-size: 12px; color: var(--text-muted); margin-left: auto; text-align: right; }
+
+  @media (min-width: 640px) {
+    .reading-row { flex-direction: row; align-items: center; }
+    .reading-name { flex: 1; }
+    .reading-diff { margin-left: 0; }
+  }
   .card {
     background: var(--card); border: 1px solid var(--border); border-radius: 10px;
     padding: 16px; margin-bottom: 16px;
@@ -120,7 +145,13 @@
     padding: 16px 4px; border-bottom: 1px solid var(--border);
   }
   .due-row:last-child { border-bottom: none; }
-  .due-name { font-weight: 600; font-size: 17px; line-height: 1.3; }
+  .due-name { font-weight: 600; font-size: 17px; line-height: 1.3; display: flex; align-items: center; gap: 8px; }
+  .apt-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: var(--teal-light); color: var(--teal-dark);
+    font-weight: 700; font-size: 12px;
+  }
   .due-amount-status {
     display: flex; align-items: center; justify-content: space-between; width: 100%;
   }
@@ -130,10 +161,13 @@
 
   @media (min-width: 640px) {
     .due-row {
-      flex-direction: row; align-items: center; justify-content: space-between; gap: 16px;
+      flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px;
     }
     .due-name { flex: 1; font-size: 15px; }
-    .due-amount-status { width: auto; gap: 14px; }
+    .due-amount-status {
+      width: auto; display: grid; grid-template-columns: 90px 170px; column-gap: 14px; justify-content: start;
+    }
+    .due-amount { text-align: right; }
     .due-actions { width: auto; }
     .due-actions button.action { flex: none; }
   }
@@ -264,17 +298,11 @@
       </div>
       <button class="action" onclick="saveGas()">Αποθήκευση</button>
       <button class="action secondary" onclick="zeroGasReadings()">Μηδενική κατανάλωση (πάγιο μόνο)</button>
-      <button class="action secondary" onclick="loadJuneBaseline()">Καταχώρηση αρχικών ενδείξεων Ιουνίου</button>
       <span class="save-status" id="gasSaveStatus"></span>
     </div>
     <div class="card">
       <h2>Ενδείξεις μετρητή (ώρες)</h2>
-      <div class="table-wrap">
-      <table>
-        <thead><tr><th>Διαμέρισμα</th><th>Προηγούμενη ένδειξη</th><th>Τρέχουσα ένδειξη</th><th>Διαφορά (ώρες)</th></tr></thead>
-        <tbody id="gasReadingsBody"></tbody>
-      </table>
-      </div>
+      <div id="gasReadingsList"></div>
     </div>
     <div class="card">
       <h2>Επιμερισμός λογαριασμού</h2>
@@ -519,7 +547,7 @@ function renderDashboard() {
          <button class="action" onclick="markPaid(${apt.id},'IRIS')">IRIS</button>
          <button class="action secondary" onclick="remind(${apt.id})">Υπενθύμιση</button>`;
     return `<div class="due-row">
-      <span class="due-name">${apt.name}${apt.tenant ? ' — ' + apt.tenant : ''}</span>
+      <span class="due-name"><span class="apt-badge">${apt.name}</span>${apt.tenant || ''}</span>
       <div class="due-amount-status">
         <span class="due-amount">€${due.toFixed(2)}</span>
         ${badge}
@@ -666,25 +694,44 @@ function renderGas() {
 
   const { diffs, allZero, paγioShare, variableShare, gasDues, prevMonth } = computeGasBreakdown(key);
 
-  document.getElementById('gasReadingsBody').innerHTML = state.apartments.map(apt => {
+  document.getElementById('gasReadingsList').innerHTML = state.apartments.map(apt => {
     const prevReading = prevMonth && prevMonth.gas ? (prevMonth.gas.readings[apt.id] || 0) : 0;
     const currentReading = month.gas.readings[apt.id] || '';
-    return `<tr>
-      <td>Μετρητής ${apt.meterNumber || '—'} · ${apt.name}${apt.tenant ? ' — ' + apt.tenant : ''}</td>
-      <td>${prevReading}</td>
-      <td><input type="number" step="0.01" value="${currentReading}" onchange="updateGasReading(${apt.id}, this.value)"></td>
-      <td>${diffs[apt.id].toFixed(2)}</td>
-    </tr>`;
+    return `<div class="reading-row">
+      <div class="reading-meter">Μετρητής ${apt.meterNumber || '—'}</div>
+      <div class="reading-name">
+        <span class="apt-badge">${apt.name}</span>${apt.tenant || ''}
+      </div>
+      <div class="reading-values">
+        <div class="reading-field">
+          <label>Προηγούμενη</label>
+          <div class="static-value">${prevReading}</div>
+        </div>
+        <div class="reading-field">
+          <label>Τρέχουσα</label>
+          <input type="number" step="0.01" value="${currentReading}" onchange="updateGasReading(${apt.id}, this.value)">
+        </div>
+        <div class="reading-diff">Διαφορά<br>${diffs[apt.id].toFixed(2)} ώρες</div>
+      </div>
+    </div>`;
   }).join('') + (() => {
     const prevGeneral = prevMonth && prevMonth.gas ? (Number(prevMonth.gas.generalReading) || 0) : 0;
     const currentGeneral = Number(month.gas.generalReading) || 0;
     const diffGeneral = Math.max(0, currentGeneral - prevGeneral);
-    return `<tr style="font-weight:600">
-      <td>Γενικός μετρητής</td>
-      <td>${prevGeneral}</td>
-      <td><input type="number" step="0.01" value="${month.gas.generalReading || ''}" onchange="updateGasGeneralReading(this.value)"></td>
-      <td>${diffGeneral.toFixed(2)}</td>
-    </tr>`;
+    return `<div class="reading-row" style="font-weight:600">
+      <div class="reading-name">Γενικός μετρητής</div>
+      <div class="reading-values">
+        <div class="reading-field">
+          <label>Προηγούμενη</label>
+          <div class="static-value">${prevGeneral}</div>
+        </div>
+        <div class="reading-field">
+          <label>Τρέχουσα</label>
+          <input type="number" step="0.01" value="${month.gas.generalReading || ''}" onchange="updateGasGeneralReading(this.value)">
+        </div>
+        <div class="reading-diff">Διαφορά<br>${diffGeneral.toFixed(2)} ώρες</div>
+      </div>
+    </div>`;
   })();
 
   document.getElementById('gasModeNote').textContent = allZero
