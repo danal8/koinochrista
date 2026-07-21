@@ -34,6 +34,8 @@
     color: var(--text);
     margin: 0;
     padding: 0;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
   header {
     background: var(--teal-dark);
@@ -73,6 +75,8 @@
   .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--teal-dark); }
 
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
+  .table-wrap table { min-width: 460px; }
   th { text-align: left; padding: 8px; color: var(--text-muted); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border); }
   td { padding: 8px; border-bottom: 1px solid var(--border); }
   tr:last-child td { border-bottom: none; }
@@ -109,6 +113,25 @@
   .empty { text-align: center; color: var(--text-muted); padding: 30px; font-size: 13px; }
   .hidden { display: none; }
   .save-status { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
+
+  .due-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 4px; border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .due-row:last-child { border-bottom: none; }
+  .due-info { display: flex; flex-direction: column; gap: 2px; min-width: 120px; flex: 1; }
+  .due-name { font-weight: 600; font-size: 14px; }
+  .due-tenant { font-size: 12px; color: var(--text-muted); }
+  .due-amount-status { display: flex; align-items: center; gap: 10px; }
+  .due-amount { font-weight: 600; font-size: 16px; color: var(--teal-dark); white-space: nowrap; }
+  .due-actions { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+  .due-actions button.action { flex: 1; min-width: 0; padding: 8px 6px; font-size: 12px; }
+
+  @media (min-width: 640px) {
+    .due-row { flex-wrap: nowrap; }
+    .due-actions { width: auto; flex-wrap: nowrap; }
+    .due-actions button.action { flex: none; }
+  }
 </style>
 </head>
 <body>
@@ -137,12 +160,7 @@
     <div class="summary-grid" id="summaryGrid"></div>
     <div class="card">
       <h2>Οφειλές ανά διαμέρισμα</h2>
-      <table>
-        <thead>
-          <tr><th>Διαμέρισμα</th><th>Ένοικος</th><th>Οφειλή</th><th>Κατάσταση</th><th>Ενέργειες</th></tr>
-        </thead>
-        <tbody id="duesTableBody"></tbody>
-      </table>
+      <div id="duesList"></div>
     </div>
   </div>
 
@@ -181,10 +199,12 @@
     </div>
     <div class="card">
       <h2>Έξοδα μήνα</h2>
+      <div class="table-wrap">
       <table>
         <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th>Επιμερισμός</th><th>Εξόφληση</th><th></th></tr></thead>
         <tbody id="expensesTableBody"></tbody>
       </table>
+      </div>
       <div id="expensesEmpty" class="empty hidden">Δεν υπάρχουν έξοδα καταχωρημένα για αυτόν τον μήνα.</div>
     </div>
   </div>
@@ -218,10 +238,12 @@
     </div>
     <div class="card">
       <h2>Λίστα σταθερών εξόδων</h2>
+      <div class="table-wrap">
       <table>
         <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th>Επιμερισμός</th><th></th></tr></thead>
         <tbody id="fixedTableBody"></tbody>
       </table>
+      </div>
       <div id="fixedEmpty" class="empty hidden">Δεν έχεις καταχωρήσει σταθερά έξοδα ακόμα.</div>
     </div>
   </div>
@@ -241,18 +263,22 @@
     </div>
     <div class="card">
       <h2>Ενδείξεις μετρητή (ώρες)</h2>
+      <div class="table-wrap">
       <table>
         <thead><tr><th>Διαμέρισμα</th><th>Προηγούμενη ένδειξη</th><th>Τρέχουσα ένδειξη</th><th>Διαφορά (ώρες)</th></tr></thead>
         <tbody id="gasReadingsBody"></tbody>
       </table>
+      </div>
     </div>
     <div class="card">
       <h2>Επιμερισμός λογαριασμού</h2>
       <p style="font-size:12px;color:var(--text-muted);margin-top:-6px" id="gasModeNote"></p>
+      <div class="table-wrap">
       <table>
         <thead><tr><th>Διαμέρισμα</th><th>Πάγιο (20%, χιλιοστά θέρμανσης)</th><th>Μεταβλητό (80%)</th><th>Σύνολο</th></tr></thead>
         <tbody id="gasBreakdownBody"></tbody>
       </table>
+      </div>
     </div>
   </div>
 
@@ -260,10 +286,12 @@
     <div class="card">
       <h2>Διαμερίσματα και χιλιοστά ανά κατηγορία</h2>
       <p style="font-size:12px;color:var(--text-muted);margin-top:-6px">Τα ποσοστά ανά κατηγορία πρέπει να αθροίζουν σε 100%.</p>
+      <div class="table-wrap">
       <table>
         <thead id="apartmentsHead"></thead>
         <tbody id="apartmentsTableBody"></tbody>
       </table>
+      </div>
       <button class="action secondary" onclick="saveApartments()" style="margin-top:10px">Αποθήκευση χιλιοστών</button>
       <span class="save-status" id="aptSaveStatus"></span>
     </div>
@@ -291,10 +319,12 @@
     </div>
     <div class="card">
       <h2>Προσεχείς εργασίες</h2>
+      <div class="table-wrap">
       <table>
         <thead><tr><th>Εργασία</th><th>Ημερομηνία</th><th>Κατάσταση</th><th></th></tr></thead>
         <tbody id="maintenanceTableBody"></tbody>
       </table>
+      </div>
       <div id="maintenanceEmpty" class="empty hidden">Δεν υπάρχουν καταχωρημένες υπενθυμίσεις.</div>
     </div>
   </div>
@@ -472,15 +502,18 @@ function renderDashboard() {
       : `<button class="action" onclick="markPaid(${apt.id},'Μετρητά')">Μετρητά</button>
          <button class="action" onclick="markPaid(${apt.id},'IRIS')">IRIS</button>
          <button class="action secondary" onclick="remind(${apt.id})">Υπενθύμιση</button>`;
-    return `<tr>
-      <td>${apt.name}</td>
-      <td>${apt.tenant || '-'}</td>
-      <td class="amount">€${due.toFixed(2)}</td>
-      <td>${badge}</td>
-      <td>${actions}</td>
-    </tr>`;
+    return `<div class="due-row">
+      <div class="due-info">
+        <span class="due-name">${apt.name}${apt.tenant ? ' — ' + apt.tenant : ''}</span>
+      </div>
+      <div class="due-amount-status">
+        <span class="due-amount">€${due.toFixed(2)}</span>
+        ${badge}
+      </div>
+      <div class="due-actions">${actions}</div>
+    </div>`;
   }).join('');
-  document.getElementById('duesTableBody').innerHTML = rows;
+  document.getElementById('duesList').innerHTML = rows;
 }
 
 function renderExpenses() {
