@@ -31,20 +31,20 @@
   header {
     background: var(--teal-dark);
     color: white;
-    padding: 16px 20px;
+    padding: 14px 20px 18px;
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
-    flex-wrap: wrap;
     gap: 10px;
   }
-  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
-  .month-picker { display: flex; align-items: center; gap: 8px; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; align-self: flex-start; opacity: 0.9; }
+  .month-picker { display: flex; align-items: center; gap: 16px; }
   .month-picker button {
     background: rgba(255,255,255,0.15); border: none; color: white;
-    width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 16px;
+    width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 20px;
   }
-  .month-picker span { font-weight: 600; min-width: 140px; text-align: center; }
+  .month-picker button:hover { background: rgba(255,255,255,0.25); }
+  .month-picker span { font-weight: 700; min-width: 220px; text-align: center; font-size: 22px; }
 
   .tabs {
     display: flex; gap: 4px; background: var(--card);
@@ -175,7 +175,7 @@
     <div class="card">
       <h2>Έξοδα μήνα</h2>
       <table>
-        <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th>Επιμερισμός</th><th></th></tr></thead>
+        <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th>Επιμερισμός</th><th>Εξόφληση</th><th></th></tr></thead>
         <tbody id="expensesTableBody"></tbody>
       </table>
       <div id="expensesEmpty" class="empty hidden">Δεν υπάρχουν έξοδα καταχωρημένα για αυτόν τον μήνα.</div>
@@ -445,11 +445,13 @@ function renderDashboard() {
     return sum + (p && p.status === 'paid' ? dues[apt.id] : 0);
   }, 0);
   const pendingCount = state.apartments.filter(apt => !month.payments[apt.id] || month.payments[apt.id].status !== 'paid').length;
+  const unpaidExpensesCount = month.expenses.filter(e => !e.paid).length;
 
   document.getElementById('summaryGrid').innerHTML = `
     <div class="summary-box"><div class="label">Σύνολο εξόδων μήνα</div><div class="value">€${totalExpenses.toFixed(2)}</div></div>
-    <div class="summary-box"><div class="label">Εισπράχθηκαν</div><div class="value">€${totalCollected.toFixed(2)}</div></div>
-    <div class="summary-box"><div class="label">Εκκρεμούν</div><div class="value">${pendingCount} / ${state.apartments.length}</div></div>
+    <div class="summary-box"><div class="label">Εισπράχθηκαν από ενοίκους</div><div class="value">€${totalCollected.toFixed(2)}</div></div>
+    <div class="summary-box"><div class="label">Εκκρεμούν ένοικοι</div><div class="value">${pendingCount} / ${state.apartments.length}</div></div>
+    <div class="summary-box"><div class="label">Ανεξόφλητα έξοδα</div><div class="value">${unpaidExpensesCount} / ${month.expenses.length}</div></div>
   `;
 
   const rows = state.apartments.map(apt => {
@@ -491,7 +493,11 @@ function renderExpenses() {
       <td>${e.description}</td>
       <td class="amount">€${Number(e.amount).toFixed(2)}</td>
       <td>${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</td>
-      <td><button class="action danger" onclick="deleteExpense(${idx})">Διαγραφή</button></td>
+      <td>${e.paid ? `<span class="badge paid">Εξοφλήθηκε</span>` : `<span class="badge pending">Ανεξόφλητο</span>`}</td>
+      <td>
+        <button class="action ${e.paid ? 'secondary' : ''}" onclick="toggleExpensePaid(${idx})">${e.paid ? 'Αναίρεση' : 'Σήμανση εξόφλησης'}</button>
+        <button class="action danger" onclick="deleteExpense(${idx})">Διαγραφή</button>
+      </td>
     </tr>
   `).join('');
 }
@@ -764,6 +770,13 @@ function deleteExpense(idx) {
   const key = monthKey(currentMonth);
   const month = ensureMonth(key);
   month.expenses.splice(idx, 1);
+  render();
+  saveData('expSaveStatus');
+}
+function toggleExpensePaid(idx) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.expenses[idx].paid = !month.expenses[idx].paid;
   render();
   saveData('expSaveStatus');
 }
