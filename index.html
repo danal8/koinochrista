@@ -264,6 +264,7 @@
       </div>
       <button class="action" onclick="saveGas()">Αποθήκευση</button>
       <button class="action secondary" onclick="zeroGasReadings()">Μηδενική κατανάλωση (πάγιο μόνο)</button>
+      <button class="action secondary" onclick="loadJuneBaseline()">Καταχώρηση αρχικών ενδείξεων Ιουνίου</button>
       <span class="save-status" id="gasSaveStatus"></span>
     </div>
     <div class="card">
@@ -717,6 +718,14 @@ function updateGasTotal(value) {
   const month = ensureMonth(key);
   month.gas.totalBill = parseFloat(value) || 0;
 }
+function loadJuneBaseline() {
+  const key = '2026-06';
+  const month = ensureMonth(key);
+  month.gas.readings = { 1: 6593, 2: 2690, 3: 7615, 4: 1017, 5: 6491, 6: 6627, 7: 118 };
+  render();
+  saveData('gasSaveStatus');
+}
+
 function zeroGasReadings() {
   const key = monthKey(currentMonth);
   const month = ensureMonth(key);
