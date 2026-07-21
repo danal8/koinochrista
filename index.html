@@ -119,6 +119,7 @@
   <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Πίνακας μήνα</button>
   <button class="tab" data-tab="expenses" onclick="switchTab('expenses')">Έξοδα</button>
   <button class="tab" data-tab="fixed" onclick="switchTab('fixed')">Σταθερά έξοδα</button>
+  <button class="tab" data-tab="gas" onclick="switchTab('gas')">Φυσικό αέριο</button>
   <button class="tab" data-tab="apartments" onclick="switchTab('apartments')">Διαμερίσματα</button>
   <button class="tab" data-tab="maintenance" onclick="switchTab('maintenance')">Συντήρηση</button>
 </div>
@@ -204,6 +205,36 @@
     </div>
   </div>
 
+  <div id="tab-gas" class="hidden">
+    <div class="card">
+      <h2>Λογαριασμός μήνα</h2>
+      <div class="form-row">
+        <div>
+          <label>Συνολικό ποσό λογαριασμού (€)</label>
+          <input type="number" step="0.01" id="gasTotalBill" onchange="updateGasTotal(this.value)">
+        </div>
+      </div>
+      <button class="action" onclick="saveGas()">Αποθήκευση</button>
+      <button class="action secondary" onclick="zeroGasReadings()">Μηδενισμός όλων (καλοκαιρινός μήνας)</button>
+      <span class="save-status" id="gasSaveStatus"></span>
+    </div>
+    <div class="card">
+      <h2>Ενδείξεις μετρητή (ώρες)</h2>
+      <table>
+        <thead><tr><th>Διαμέρισμα</th><th>Προηγούμενη ένδειξη</th><th>Τρέχουσα ένδειξη</th><th>Διαφορά (ώρες)</th></tr></thead>
+        <tbody id="gasReadingsBody"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Επιμερισμός λογαριασμού</h2>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:-6px" id="gasModeNote"></p>
+      <table>
+        <thead><tr><th>Διαμέρισμα</th><th>Πάγιο (20%, χιλιοστά θέρμανσης)</th><th>Μεταβλητό (80%)</th><th>Σύνολο</th></tr></thead>
+        <tbody id="gasBreakdownBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div id="tab-apartments" class="hidden">
     <div class="card">
       <h2>Διαμερίσματα και χιλιοστά ανά κατηγορία</h2>
@@ -284,9 +315,21 @@ function monthLabel(d) {
 }
 function ensureMonth(key) {
   if (!state.months[key]) {
-    state.months[key] = { expenses: [], payments: {} };
+    state.months[key] = { expenses: [], payments: {}, gas: { readings: {}, generalReading: 0, totalBill: 0 } };
+  }
+  if (!state.months[key].gas) {
+    state.months[key].gas = { readings: {}, generalReading: 0, totalBill: 0 };
+  }
+  if (state.months[key].gas.generalReading === undefined) {
+    state.months[key].gas.generalReading = 0;
   }
   return state.months[key];
+}
+
+function previousMonthKey(d) {
+  const p = new Date(d);
+  p.setMonth(p.getMonth() - 1);
+  return monthKey(p);
 }
 
 // ---------- Load / Save ----------
@@ -320,7 +363,7 @@ async function saveData(statusElId) {
 // ---------- Navigation ----------
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['dashboard','expenses','fixed','apartments','maintenance'].forEach(t => {
+  ['dashboard','expenses','fixed','gas','apartments','maintenance'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
   });
 }
@@ -337,6 +380,7 @@ function render() {
   renderDashboard();
   renderExpenses();
   renderFixed();
+  renderGas();
   renderApartments();
   renderMaintenance();
 }
@@ -353,6 +397,8 @@ function computeDues(key) {
   CATEGORIES.forEach(c => totalsByCategory[c] = 0);
   month.expenses.forEach(e => { totalsByCategory[e.category] = (totalsByCategory[e.category] || 0) + Number(e.amount); });
 
+  const { gasDues } = computeGasBreakdown(key);
+
   const dues = {};
   state.apartments.forEach(apt => {
     let total = 0;
@@ -360,17 +406,17 @@ function computeDues(key) {
       const pct = (apt.shares[c] || 0) / 100;
       total += (totalsByCategory[c] || 0) * pct;
     });
+    total += gasDues[apt.id] || 0;
     dues[apt.id] = total;
   });
-  return { dues, totalsByCategory };
+  return { dues, totalsByCategory, gasDues };
 }
 
 function renderDashboard() {
   const key = monthKey(currentMonth);
   const month = ensureMonth(key);
   const { dues, totalsByCategory } = computeDues(key);
-
-  const totalExpenses = Object.values(totalsByCategory).reduce((a,b)=>a+b, 0);
+  const totalExpenses = Object.values(totalsByCategory).reduce((a,b)=>a+b, 0) + (Number(month.gas.totalBill) || 0);
   const totalCollected = state.apartments.reduce((sum, apt) => {
     const p = month.payments[apt.id];
     return sum + (p && p.status === 'paid' ? dues[apt.id] : 0);
@@ -480,6 +526,124 @@ function applyFixedExpenses() {
   statusEl.textContent = addedCount > 0 ? `Προστέθηκαν ${addedCount} έξοδα.` : 'Ήταν ήδη όλα προστεθημένα σε αυτόν τον μήνα.';
   setTimeout(() => statusEl.textContent = '', 3000);
   saveData();
+}
+
+function computeGasBreakdown(key) {
+  const month = ensureMonth(key);
+  const prevKey = previousMonthKey(new Date(key + '-01'));
+  const prevMonth = state.months[prevKey];
+  const totalBill = Number(month.gas.totalBill) || 0;
+
+  const diffs = {};
+  let totalHours = 0;
+  state.apartments.forEach(apt => {
+    const current = Number(month.gas.readings[apt.id]) || 0;
+    const previous = prevMonth && prevMonth.gas ? (Number(prevMonth.gas.readings[apt.id]) || 0) : 0;
+    const diff = Math.max(0, current - previous);
+    diffs[apt.id] = diff;
+    totalHours += diff;
+  });
+
+  const allZero = totalHours === 0;
+  const gasDues = {};
+  const paγioShare = {};
+  const variableShare = {};
+
+  state.apartments.forEach(apt => {
+    const heatingPct = (apt.shares['Θέρμανση'] || 0) / 100;
+    const paγio = totalBill * 0.20 * heatingPct;
+    let variable;
+    if (allZero) {
+      variable = totalBill * 0.80 * heatingPct;
+    } else {
+      variable = totalBill * 0.80 * (diffs[apt.id] / totalHours);
+    }
+    paγioShare[apt.id] = paγio;
+    variableShare[apt.id] = variable;
+    gasDues[apt.id] = paγio + variable;
+  });
+
+  return { diffs, totalHours, allZero, paγioShare, variableShare, gasDues, prevKey, prevMonth };
+}
+
+function renderGas() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  document.getElementById('gasTotalBill').value = month.gas.totalBill || '';
+
+  const { diffs, allZero, paγioShare, variableShare, gasDues, prevMonth } = computeGasBreakdown(key);
+
+  document.getElementById('gasReadingsBody').innerHTML = state.apartments.map(apt => {
+    const prevReading = prevMonth && prevMonth.gas ? (prevMonth.gas.readings[apt.id] || 0) : 0;
+    const currentReading = month.gas.readings[apt.id] || '';
+    return `<tr>
+      <td>${apt.name}${apt.tenant ? ' — ' + apt.tenant : ''}</td>
+      <td>${prevReading}</td>
+      <td><input type="number" step="0.01" value="${currentReading}" onchange="updateGasReading(${apt.id}, this.value)"></td>
+      <td>${diffs[apt.id].toFixed(2)}</td>
+    </tr>`;
+  }).join('') + (() => {
+    const prevGeneral = prevMonth && prevMonth.gas ? (Number(prevMonth.gas.generalReading) || 0) : 0;
+    const currentGeneral = Number(month.gas.generalReading) || 0;
+    const diffGeneral = Math.max(0, currentGeneral - prevGeneral);
+    return `<tr style="font-weight:600">
+      <td>Γενικός μετρητής</td>
+      <td>${prevGeneral}</td>
+      <td><input type="number" step="0.01" value="${month.gas.generalReading || ''}" onchange="updateGasGeneralReading(this.value)"></td>
+      <td>${diffGeneral.toFixed(2)}</td>
+    </tr>`;
+  })();
+
+  document.getElementById('gasModeNote').textContent = allZero
+    ? 'Δεν υπάρχουν ενδείξεις κατανάλωσης αυτόν τον μήνα — όλο το ποσό μοιράζεται με τα χιλιοστά θέρμανσης.'
+    : 'Το μεταβλητό μέρος μοιράζεται ανάλογα με τις ώρες κατανάλωσης κάθε διαμερίσματος.';
+
+  document.getElementById('gasBreakdownBody').innerHTML = state.apartments.map(apt => `
+    <tr>
+      <td>${apt.name}</td>
+      <td class="amount">€${paγioShare[apt.id].toFixed(2)}</td>
+      <td class="amount">€${variableShare[apt.id].toFixed(2)}</td>
+      <td class="amount">€${gasDues[apt.id].toFixed(2)}</td>
+    </tr>
+  `).join('');
+}
+
+function updateGasReading(aptId, value) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.gas.readings[aptId] = parseFloat(value) || 0;
+  renderGas();
+}
+function updateGasGeneralReading(value) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.gas.generalReading = parseFloat(value) || 0;
+  renderGas();
+}
+function updateGasTotal(value) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.gas.totalBill = parseFloat(value) || 0;
+}
+function zeroGasReadings() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  const prevKey = previousMonthKey(new Date(key + '-01'));
+  const prevMonth = state.months[prevKey];
+  state.apartments.forEach(apt => {
+    const prevReading = prevMonth && prevMonth.gas ? (Number(prevMonth.gas.readings[apt.id]) || 0) : 0;
+    month.gas.readings[apt.id] = prevReading;
+  });
+  month.gas.generalReading = prevMonth && prevMonth.gas ? (Number(prevMonth.gas.generalReading) || 0) : 0;
+  renderGas();
+  renderDashboard();
+  saveData('gasSaveStatus');
+}
+
+function saveGas() {
+  renderGas();
+  renderDashboard();
+  saveData('gasSaveStatus');
 }
 
 function renderApartments() {
