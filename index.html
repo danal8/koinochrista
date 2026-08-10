@@ -164,7 +164,26 @@
   .due-actions { display: flex; gap: 8px; width: 100%; }
   .due-actions button.action { flex: 1; min-width: 0; padding: 10px 6px; font-size: 13px; }
 
+  #expensesTableWrap { display: none; }
+  #expensesCards { display: block; }
+  .exp-card {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 14px 4px; border-bottom: 1px solid var(--border);
+  }
+  .exp-card:last-child { border-bottom: none; }
+  .exp-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .exp-card-cat { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px; }
+  .exp-card-desc { font-weight: 600; font-size: 15px; line-height: 1.35; margin-top: 2px; }
+  .exp-card-due { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .exp-card-due.overdue { color: var(--red); font-weight: 600; }
+  .exp-card-amount { font-weight: 700; font-size: 17px; color: var(--teal-dark); white-space: nowrap; }
+  .exp-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .exp-card-split { font-size: 12px; color: var(--text-muted); }
+  .exp-card-actions { display: flex; align-items: center; gap: 12px; }
+
   @media (min-width: 640px) {
+    #expensesTableWrap { display: block; }
+    #expensesCards { display: none; }
     .due-row {
       flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px;
     }
@@ -234,6 +253,10 @@
             <option value="equal">Εξίσου σε όλα τα διαμερίσματα</option>
           </select>
         </div>
+        <div>
+          <label>Ημερομηνία λήξης (προαιρετικό)</label>
+          <input type="date" id="expDueDate">
+        </div>
       </div>
       <button class="action" onclick="addExpense()">+ Προσθήκη εξόδου</button>
       <span class="save-status" id="expSaveStatus"></span>
@@ -246,7 +269,7 @@
     </div>
     <div class="card">
       <h2>Έξοδα μήνα</h2>
-      <div class="table-wrap compact">
+      <div class="table-wrap compact" id="expensesTableWrap">
       <table>
         <colgroup>
           <col style="width:20%">
@@ -260,6 +283,7 @@
         <tbody id="expensesTableBody"></tbody>
       </table>
       </div>
+      <div id="expensesCards"></div>
       <div id="expensesEmpty" class="empty hidden">Δεν υπάρχουν έξοδα καταχωρημένα για αυτόν τον μήνα.</div>
     </div>
   </div>
@@ -585,24 +609,40 @@ function renderDashboard() {
   document.getElementById('duesList').innerHTML = rows;
 }
 
+function isExpenseOverdue(e) {
+  if (!e.dueDate || e.paid) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return new Date(e.dueDate) < today;
+}
+
+function formatDueDate(dueDate) {
+  return new Date(dueDate).toLocaleDateString('el-GR');
+}
+
 function renderExpenses() {
   const key = monthKey(currentMonth);
   const month = ensureMonth(key);
   const body = document.getElementById('expensesTableBody');
+  const cardsWrap = document.getElementById('expensesCards');
   const empty = document.getElementById('expensesEmpty');
   const hasGasLine = Number(month.gas.totalBill) > 0;
 
   if (month.expenses.length === 0 && !hasGasLine) {
     body.innerHTML = '';
+    cardsWrap.innerHTML = '';
     empty.classList.remove('hidden');
     return;
   }
   empty.classList.add('hidden');
 
+  const dueHtml = (e) => e.dueDate
+    ? `<div style="font-size:11px;margin-top:2px;color:${isExpenseOverdue(e) ? 'var(--red)' : 'var(--text-muted)'}">Λήξη: ${formatDueDate(e.dueDate)}</div>`
+    : '';
+
   let rows = month.expenses.map((e, idx) => `
     <tr>
       <td>${e.category}</td>
-      <td>${e.description}</td>
+      <td>${e.description}${dueHtml(e)}</td>
       <td class="amount">€${Number(e.amount).toFixed(2)}</td>
       <td>${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</td>
       <td>
@@ -614,11 +654,31 @@ function renderExpenses() {
     </tr>
   `).join('');
 
+  let cards = month.expenses.map((e, idx) => `
+    <div class="exp-card">
+      <div class="exp-card-top">
+        <div>
+          <div class="exp-card-cat">${e.category}</div>
+          <div class="exp-card-desc">${e.description}</div>
+          ${e.dueDate ? `<div class="exp-card-due${isExpenseOverdue(e) ? ' overdue' : ''}">Λήξη: ${formatDueDate(e.dueDate)}</div>` : ''}
+        </div>
+        <div class="exp-card-amount">€${Number(e.amount).toFixed(2)}</div>
+      </div>
+      <div class="exp-card-meta">
+        <span class="exp-card-split">${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</span>
+        <div class="exp-card-actions">
+          <span class="badge ${e.paid ? 'paid' : 'unpaid'}" style="cursor:pointer" title="Πάτα για αλλαγή κατάστασης" onclick="toggleExpensePaid(${idx})">${e.paid ? 'Εξοφλήθηκε' : 'Ανεξόφλητο'}</span>
+          <span style="cursor:pointer; color:var(--red); font-size:17px" title="Διαγραφή" onclick="deleteExpense(${idx})">🗑</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
   if (hasGasLine) {
     rows += `
       <tr>
         <td>Φυσικό αέριο</td>
-        <td>Λογαριασμός φυσικού αερίου (δείτε καρτέλα «Φυσικό αέριο»)</td>
+        <td>Λογαριασμός φυσικού αερίου</td>
         <td class="amount">€${Number(month.gas.totalBill).toFixed(2)}</td>
         <td>Χιλιοστά</td>
         <td>
@@ -627,9 +687,27 @@ function renderExpenses() {
         <td></td>
       </tr>
     `;
+    cards += `
+      <div class="exp-card">
+        <div class="exp-card-top">
+          <div>
+            <div class="exp-card-cat">Φυσικό αέριο</div>
+            <div class="exp-card-desc">Λογαριασμός φυσικού αερίου</div>
+          </div>
+          <div class="exp-card-amount">€${Number(month.gas.totalBill).toFixed(2)}</div>
+        </div>
+        <div class="exp-card-meta">
+          <span class="exp-card-split">Χιλιοστά</span>
+          <div class="exp-card-actions">
+            <span class="badge ${month.gas.paid ? 'paid' : 'unpaid'}" style="cursor:pointer" title="Πάτα για αλλαγή κατάστασης" onclick="toggleGasPaid()">${month.gas.paid ? 'Εξοφλήθηκε' : 'Ανεξόφλητο'}</span>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   body.innerHTML = rows;
+  cardsWrap.innerHTML = cards;
 }
 
 function toggleGasPaid() {
@@ -923,15 +1001,17 @@ function addExpense() {
   const description = document.getElementById('expDesc').value.trim();
   const amount = parseFloat(document.getElementById('expAmount').value);
   const splitMode = document.getElementById('expSplitMode').value;
+  const dueDate = document.getElementById('expDueDate').value || null;
   if (!description || isNaN(amount) || amount <= 0) {
     alert('Συμπλήρωσε περιγραφή και έγκυρο ποσό.');
     return;
   }
   const key = monthKey(currentMonth);
   const month = ensureMonth(key);
-  month.expenses.push({ category, description, amount, splitMode });
+  month.expenses.push({ category, description, amount, splitMode, dueDate });
   document.getElementById('expDesc').value = '';
   document.getElementById('expAmount').value = '';
+  document.getElementById('expDueDate').value = '';
   render();
   saveData('expSaveStatus');
 }
