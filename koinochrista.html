@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Κοινόχρηστα Πολυκατοικίας</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#4A7C6E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Κοινόχρηστα">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --teal-dark: #4A7C6E;
+    --teal: #6FA391;
+    --teal-light: #EAF4EF;
+    --bg: #F7F6F1;
+    --card: #FFFFFF;
+    --border: #E3DFD3;
+    --text: #3A3A37;
+    --text-muted: #8A8A84;
+    --red: #B96B65;
+    --red-light: #FBEFED;
+    --amber: #A47B3F;
+    --amber-light: #FBF2E3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  header {
+    background: var(--teal-dark);
+    color: white;
+    padding: 14px 20px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; align-self: center; opacity: 0.9; }
+  .month-picker { display: flex; align-items: center; gap: 16px; }
+  .month-picker button {
+    background: rgba(255,255,255,0.18); border: none; color: white;
+    width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 20px;
+  }
+  .month-picker button:hover { background: rgba(255,255,255,0.28); }
+  .month-picker span { font-weight: 700; min-width: 220px; text-align: center; font-size: 22px; }
+
+  .tabs {
+    display: flex; gap: 4px; background: var(--card);
+    padding: 8px 20px 0; border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 10px 16px; cursor: pointer; border: none; background: none;
+    font-size: 14px; color: var(--text-muted); border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  .tab.active { color: var(--teal-dark); border-bottom-color: var(--teal); font-weight: 600; }
+
+  main { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+  @media (min-width: 640px) {
+    header h1 { align-self: center; }
+    .tabs { justify-content: center; }
+  }
+
+  .reading-row {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 14px 4px; border-bottom: 1px solid var(--border);
+  }
+  .reading-row:last-child { border-bottom: none; }
+  .reading-meter { font-size: 12px; color: var(--text-muted); }
+  .reading-name { font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .reading-values { display: flex; gap: 16px; align-items: center; }
+  .reading-field { display: flex; flex-direction: column; gap: 3px; }
+  .reading-field label { font-size: 11px; color: var(--text-muted); }
+  .reading-field .static-value { font-size: 14px; padding: 6px 0; }
+  .reading-field input { width: 110px; }
+  .reading-diff { font-size: 12px; color: var(--text-muted); margin-left: auto; text-align: right; }
+
+  @media (min-width: 640px) {
+    .reading-row { flex-direction: row; align-items: center; }
+    .reading-name { flex: 1; }
+    .reading-diff { margin-left: 0; }
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--teal-dark); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
+  .table-wrap table { min-width: 460px; }
+  .table-wrap.compact table { min-width: 0; table-layout: fixed; }
+  .table-wrap.compact { overflow-x: visible; }
+  th { text-align: left; padding: 8px; color: var(--text-muted); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px; border-bottom: 1px solid var(--border); word-break: break-word; }
+  tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block; padding: 5px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    text-align: center; white-space: nowrap;
+  }
+  .badge.pending { background: var(--amber-light); color: var(--amber); }
+  .badge.paid { background: var(--teal-light); color: var(--teal-dark); }
+  .badge.unpaid { background: var(--red-light); color: var(--red); }
+
+  .amount { font-weight: 600; }
+  .overdue { color: var(--red); font-size: 12px; }
+
+  button.action {
+    background: var(--teal); color: white; border: none; padding: 6px 12px;
+    border-radius: 6px; font-size: 12px; cursor: pointer; margin-right: 4px;
+  }
+  button.action.secondary { background: var(--card); color: var(--teal-dark); border: 1px solid var(--teal); }
+  button.action.danger { background: var(--red-light); color: var(--red); }
+  button.action:hover { opacity: 0.85; }
+
+  input, select {
+    padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; width: 100%;
+  }
+  .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 10px; margin-bottom: 10px; align-items: end; }
+  .form-row label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 3px; min-height: 28px; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 10px; margin-bottom: 16px; }
+  .summary-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .summary-box.clickable { cursor: pointer; }
+  .summary-box.clickable:hover { border-color: var(--teal); }
+  .summary-box .label { font-size: 12px; color: var(--text-muted); min-height: 32px; }
+  .summary-box .value { font-size: 22px; font-weight: 600; color: var(--teal-dark); }
+
+  .empty { text-align: center; color: var(--text-muted); padding: 30px; font-size: 13px; }
+  .hidden { display: none; }
+  .save-status { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
+
+  .due-row {
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 16px 4px; border-bottom: 1px solid var(--border);
+  }
+  .due-row:last-child { border-bottom: none; }
+  .due-name { font-weight: 600; font-size: 17px; line-height: 1.3; display: flex; align-items: center; gap: 8px; }
+  .apt-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: var(--teal-light); color: var(--teal-dark);
+    font-weight: 700; font-size: 12px;
+  }
+  .due-amount-status {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+  }
+  .due-amount { font-weight: 700; font-size: 19px; color: var(--teal-dark); white-space: nowrap; }
+  .due-actions { display: flex; gap: 8px; width: 100%; }
+  .due-actions button.action { flex: 1; min-width: 0; padding: 10px 6px; font-size: 13px; }
+
+  #expensesTableWrap { display: none; }
+  #expensesCards { display: block; }
+  .exp-card {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 14px 4px; border-bottom: 1px solid var(--border);
+  }
+  .exp-card:last-child { border-bottom: none; }
+  .exp-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .exp-card-cat { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px; }
+  .exp-card-desc { font-weight: 600; font-size: 15px; line-height: 1.35; margin-top: 2px; }
+  .exp-card-due { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .exp-card-due.overdue { color: var(--red); font-weight: 600; }
+  .exp-card-amount { font-weight: 700; font-size: 17px; color: var(--teal-dark); white-space: nowrap; }
+  .exp-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .exp-card-split { font-size: 12px; color: var(--text-muted); }
+  .exp-card-actions { display: flex; align-items: center; gap: 12px; }
+
+  @media (min-width: 640px) {
+    #expensesTableWrap { display: block; }
+    #expensesCards { display: none; }
+    .due-row {
+      flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px;
+    }
+    .due-name { flex: 1; font-size: 15px; }
+    .due-amount-status {
+      width: auto; display: grid; grid-template-columns: 90px 170px; column-gap: 14px; justify-content: start;
+    }
+    .due-amount { text-align: right; }
+    .due-actions { width: auto; }
+    .due-actions button.action { flex: none; }
+  }
+
+  .settings-section { margin-bottom: 24px; }
+  .settings-section:last-child { margin-bottom: 0; }
+  .settings-section h3 { font-size: 14px; color: var(--teal-dark); margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏢 Κοινόχρηστα Πολυκατοικίας</h1>
+  <div class="month-picker">
+    <button onclick="changeMonth(-1)">‹</button>
+    <span id="monthLabel">—</span>
+    <button onclick="changeMonth(1)">›</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Πίνακας μήνα</button>
+  <button class="tab" data-tab="expenses" onclick="switchTab('expenses')">Έξοδα</button>
+  <button class="tab" data-tab="gas" onclick="switchTab('gas')">Φυσικό αέριο</button>
+  <button class="tab" data-tab="parking" onclick="switchTab('parking')">Parking</button>
+  <button class="tab" data-tab="settings" onclick="switchTab('settings')">Ρυθμίσεις</button>
+  <button class="tab" data-tab="maintenance" onclick="switchTab('maintenance')">Συντήρηση</button>
+</div>
+
+<main>
+
+  <div id="tab-dashboard">
+    <div class="summary-grid" id="summaryGrid"></div>
+    <div class="card">
+      <h2>Οφειλές ανά διαμέρισμα</h2>
+      <div id="duesList"></div>
+    </div>
+  </div>
+
+  <div id="tab-expenses" class="hidden">
+    <div class="card">
+      <h2>Νέο έξοδο μήνα</h2>
+      <div class="form-row">
+        <div>
+          <label>Κατηγορία</label>
+          <select id="expCategory"></select>
+        </div>
+        <div>
+          <label>Περιγραφή</label>
+          <input type="text" id="expDesc" placeholder="π.χ. ΔΕΗ κοινοχρήστων">
+        </div>
+        <div>
+          <label>Ποσό (€)</label>
+          <input type="number" id="expAmount" step="0.01" placeholder="0.00">
+        </div>
+        <div>
+          <label>Τρόπος επιμερισμού</label>
+          <select id="expSplitMode">
+            <option value="shares">Με χιλιοστά κατηγορίας</option>
+            <option value="equal">Εξίσου σε όλα τα διαμερίσματα</option>
+          </select>
+        </div>
+        <div>
+          <label>Ημερομηνία λήξης (προαιρετικό)</label>
+          <input type="date" id="expDueDate">
+        </div>
+      </div>
+      <button class="action" onclick="addExpense()">+ Προσθήκη εξόδου</button>
+      <span class="save-status" id="expSaveStatus"></span>
+    </div>
+    <div class="card">
+      <h2>Σταθερά έξοδα αυτού του μήνα</h2>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:-6px">Πρόσθεσε με ένα κλικ τα πάγια έξοδα (καθαρίστρια, ρεύμα κλπ.) που έχεις καταχωρήσει στην καρτέλα «Ρυθμίσεις».</p>
+      <button class="action secondary" onclick="applyFixedExpenses()">Εφαρμογή σταθερών στον τρέχοντα μήνα</button>
+      <span class="save-status" id="applyFixedStatus"></span>
+    </div>
+    <div class="card">
+      <h2>Έξοδα μήνα</h2>
+      <div class="table-wrap compact" id="expensesTableWrap">
+      <table>
+        <colgroup>
+          <col style="width:20%">
+          <col style="width:32%">
+          <col style="width:14%">
+          <col style="width:14%">
+          <col style="width:14%">
+          <col style="width:6%">
+        </colgroup>
+        <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th>Επιμ.</th><th>Εξόφληση</th><th></th></tr></thead>
+        <tbody id="expensesTableBody"></tbody>
+      </table>
+      </div>
+      <div id="expensesCards"></div>
+      <div id="expensesEmpty" class="empty hidden">Δεν υπάρχουν έξοδα καταχωρημένα για αυτόν τον μήνα.</div>
+    </div>
+  </div>
+
+  <div id="tab-gas" class="hidden">
+    <div class="card">
+      <h2>Λογαριασμός μήνα</h2>
+      <div class="form-row">
+        <div>
+          <label>Συνολικό ποσό λογαριασμού (€)</label>
+          <input type="number" step="0.01" id="gasTotalBill" onchange="updateGasTotal(this.value)">
+        </div>
+        <div>
+          <label>Ημερομηνία λήξης (προαιρετικό)</label>
+          <input type="date" id="gasDueDate" onchange="updateGasDueDate(this.value)">
+        </div>
+      </div>
+      <button class="action" onclick="saveGas()">Αποθήκευση</button>
+      <button class="action secondary" onclick="zeroGasReadings()">Μηδενική κατανάλωση (πάγιο μόνο)</button>
+      <span class="save-status" id="gasSaveStatus"></span>
+    </div>
+    <div class="card">
+      <h2>Ενδείξεις μετρητή (ώρες)</h2>
+      <div id="gasReadingsList"></div>
+    </div>
+    <div class="card">
+      <h2>Επιμερισμός λογαριασμού</h2>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:-6px" id="gasModeNote"></p>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Διαμέρισμα</th><th>Πάγιο (20%, χιλιοστά θέρμανσης)</th><th>Μεταβλητό (80%)</th><th>Σύνολο</th></tr></thead>
+        <tbody id="gasBreakdownBody"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-parking" class="hidden">
+    <div class="card">
+      <h2>Θέση parking</h2>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:-6px">Κάθε μήνα οφείλεις €50.00 στον Γεωργουσόπουλο Σ. (Γ1) για τη θέση parking. Το ποσό συμψηφίζεται αυτόματα με την οφειλή του για κοινόχρηστα του τρέχοντος μήνα.</p>
+      <div id="parkingSummary"></div>
+      <span class="save-status" id="parkingSaveStatus"></span>
+    </div>
+  </div>
+
+  <div id="tab-settings" class="hidden">
+    <div class="settings-section">
+      <h3>Σταθερά έξοδα</h3>
+      <div class="card">
+        <h2>Νέο σταθερό έξοδο</h2>
+        <div class="form-row">
+          <div>
+            <label>Κατηγορία</label>
+            <select id="fixedCategory"></select>
+          </div>
+          <div>
+            <label>Περιγραφή</label>
+            <input type="text" id="fixedDesc" placeholder="π.χ. Καθαρίστρια">
+          </div>
+          <div>
+            <label>Ποσό (€)</label>
+            <input type="number" id="fixedAmount" step="0.01" placeholder="0.00">
+          </div>
+          <div>
+            <label>Τρόπος επιμερισμού</label>
+            <select id="fixedSplitMode">
+              <option value="shares">Με χιλιοστά κατηγορίας</option>
+              <option value="equal">Εξίσου σε όλα τα διαμερίσματα</option>
+            </select>
+          </div>
+        </div>
+        <button class="action" onclick="addFixedExpense()">+ Προσθήκη σταθερού εξόδου</button>
+        <span class="save-status" id="fixedSaveStatus"></span>
+      </div>
+      <div class="card">
+        <h2>Λίστα σταθερών εξόδων</h2>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Κατηγορία</th><th>Περιγραφή</th><th>Ποσό</th><th>Επιμερισμός</th><th></th></tr></thead>
+          <tbody id="fixedTableBody"></tbody>
+        </table>
+        </div>
+        <div id="fixedEmpty" class="empty hidden">Δεν έχεις καταχωρήσει σταθερά έξοδα ακόμα.</div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Διαμερίσματα</h3>
+      <div class="card">
+        <h2>Διαμερίσματα και χιλιοστά ανά κατηγορία</h2>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:-6px">Τα ποσοστά ανά κατηγορία πρέπει να αθροίζουν σε 100%.</p>
+        <div class="table-wrap">
+        <table>
+          <thead id="apartmentsHead"></thead>
+          <tbody id="apartmentsTableBody"></tbody>
+        </table>
+        </div>
+        <button class="action secondary" onclick="saveApartments()" style="margin-top:10px">Αποθήκευση χιλιοστών</button>
+        <span class="save-status" id="aptSaveStatus"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-maintenance" class="hidden">
+    <div class="card">
+      <h2>Νέα υπενθύμιση συντήρησης</h2>
+      <div class="form-row">
+        <div>
+          <label>Εργασία</label>
+          <input type="text" id="maintName" placeholder="π.χ. Απεντόμωση">
+        </div>
+        <div>
+          <label>Επόμενη ημερομηνία</label>
+          <input type="date" id="maintDate">
+        </div>
+        <div>
+          <label>Επανάληψη (μήνες, προαιρετικό)</label>
+          <input type="number" id="maintRepeat" placeholder="π.χ. 6">
+        </div>
+      </div>
+      <button class="action" onclick="addMaintenance()">+ Προσθήκη υπενθύμισης</button>
+      <span class="save-status" id="maintSaveStatus"></span>
+    </div>
+    <div class="card">
+      <h2>Προσεχείς εργασίες</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Εργασία</th><th>Ημερομηνία</th><th>Κατάσταση</th><th></th></tr></thead>
+        <tbody id="maintenanceTableBody"></tbody>
+      </table>
+      </div>
+      <div id="maintenanceEmpty" class="empty hidden">Δεν υπάρχουν καταχωρημένες υπενθυμίσεις.</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ---------- Supabase ----------
+const SUPABASE_URL = 'https://odtbtugzilxsfqxlpofq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ch-7C1ihpZRrxEhXFqV1xA_hXPwq61S';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const TABLE = 'koinochrista_data'; // single-row JSON table, same pattern as other apps
+
+const CATEGORIES = ['Κοινόχρηστα', 'Ασανσέρ', 'Θέρμανση'];
+
+let state = {
+  apartments: [
+    { id: 1, name: 'Α1', tenant: 'Ασημακόπουλος', meterNumber: 2, shares: { 'Κοινόχρηστα': 15.2, 'Ασανσέρ': 6.2, 'Θέρμανση': 18.6 } },
+    { id: 2, name: 'Α2', tenant: 'Μιτάκη Έφη', meterNumber: 3, shares: { 'Κοινόχρηστα': 9.8, 'Ασανσέρ': 3.8, 'Θέρμανση': 10.6 } },
+    { id: 3, name: 'Β1', tenant: 'Στατζίδου Χρ.', meterNumber: 4, shares: { 'Κοινόχρηστα': 15.2, 'Ασανσέρ': 12.3, 'Θέρμανση': 12.7 } },
+    { id: 4, name: 'Β2', tenant: 'Λαζάρη Χρ.', meterNumber: 5, shares: { 'Κοινόχρηστα': 9.8, 'Ασανσέρ': 7.7, 'Θέρμανση': 7.2 } },
+    { id: 5, name: 'Γ1', tenant: 'Γεωργουσόπουλος Σ.', meterNumber: 6, shares: { 'Κοινόχρηστα': 15.2, 'Ασανσέρ': 18.5, 'Θέρμανση': 12.3 } },
+    { id: 6, name: 'Δ', tenant: 'Δαναλάτος Γ.', meterNumber: 1, shares: { 'Κοινόχρηστα': 25.0, 'Ασανσέρ': 40.0, 'Θέρμανση': 31.0 } },
+    { id: 7, name: 'Γ2', tenant: 'Κουφής Διον.', meterNumber: 7, shares: { 'Κοινόχρηστα': 9.8, 'Ασανσέρ': 11.5, 'Θέρμανση': 7.6 } }
+  ],
+  fixedExpenses: [], // [{category, description, amount}]
+  months: {
+    '2026-06': {
+      expenses: [],
+      payments: {},
+      gas: {
+        readings: { 1: 6593, 2: 2690, 3: 7615, 4: 1017, 5: 6491, 6: 6627, 7: 118 },
+        generalReading: 0,
+        totalBill: 0,
+        paid: false
+      }
+    }
+  }, // Ιούνιος 2026 είναι ο πρώτος μήνας εγγραφών — δεν υπάρχει προηγούμενος μήνας, οπότε η διαφορά υπολογίζεται ως 0
+  maintenance: []
+};
+
+let currentMonth = new Date();
+currentMonth.setDate(1);
+
+function monthKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function monthLabel(d) {
+  return d.toLocaleDateString('el-GR', { month: 'long', year: 'numeric' });
+}
+function ensureMonth(key) {
+  if (!state.months[key]) {
+    state.months[key] = { expenses: [], payments: {}, gas: { readings: {}, generalReading: 0, totalBill: 0, paid: false } };
+  }
+  if (!state.months[key].gas) {
+    state.months[key].gas = { readings: {}, generalReading: 0, totalBill: 0, paid: false };
+  }
+  if (state.months[key].gas.generalReading === undefined) {
+    state.months[key].gas.generalReading = 0;
+  }
+  if (state.months[key].gas.paid === undefined) {
+    state.months[key].gas.paid = false;
+  }
+  if (!state.months[key].parking) {
+    state.months[key].parking = { paid: false };
+  }
+  return state.months[key];
+}
+
+function previousMonthKey(d) {
+  const p = new Date(d);
+  p.setMonth(p.getMonth() - 1);
+  return monthKey(p);
+}
+
+// ---------- Load / Save ----------
+async function loadData() {
+  try {
+    const { data, error } = await sb.from(TABLE).select('*').eq('id', 1).single();
+    if (data && data.content) {
+      const loaded = JSON.parse(data.content);
+      state = Object.assign(state, loaded);
+    }
+  } catch (e) {
+    console.log('Δεν βρέθηκαν αποθηκευμένα δεδομένα, ξεκινάμε με το προεπιλεγμένο σχήμα.', e);
+  }
+  render();
+}
+
+async function saveData(statusElId) {
+  const statusEl = statusElId ? document.getElementById(statusElId) : null;
+  if (statusEl) statusEl.textContent = 'Αποθήκευση...';
+  try {
+    const payload = { id: 1, content: JSON.stringify(state) };
+    const { error } = await sb.from(TABLE).upsert(payload);
+    if (error) throw error;
+    if (statusEl) { statusEl.textContent = 'Αποθηκεύτηκε ✓'; setTimeout(() => statusEl.textContent = '', 2000); }
+  } catch (e) {
+    console.error(e);
+    if (statusEl) statusEl.textContent = 'Σφάλμα αποθήκευσης (δες κονσόλα)';
+  }
+}
+
+// ---------- Navigation ----------
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  ['dashboard','expenses','gas','parking','settings','maintenance'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
+  });
+}
+
+function changeMonth(delta) {
+  currentMonth.setMonth(currentMonth.getMonth() + delta);
+  render();
+}
+
+// ---------- Rendering ----------
+function render() {
+  document.getElementById('monthLabel').textContent = monthLabel(currentMonth);
+  renderCategorySelect();
+  renderDashboard();
+  renderExpenses();
+  renderFixed();
+  renderGas();
+  renderParking();
+  renderApartments();
+  renderMaintenance();
+}
+
+function renderCategorySelect() {
+  const options = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+  document.getElementById('expCategory').innerHTML = options;
+  document.getElementById('fixedCategory').innerHTML = options;
+}
+
+function computeDues(key) {
+  const month = ensureMonth(key);
+  const totalsByCategory = {};
+  CATEGORIES.forEach(c => totalsByCategory[c] = 0);
+  let equalSplitTotal = 0;
+  month.expenses.forEach(e => {
+    if (e.splitMode === 'equal') {
+      equalSplitTotal += Number(e.amount);
+    } else {
+      totalsByCategory[e.category] = (totalsByCategory[e.category] || 0) + Number(e.amount);
+    }
+  });
+
+  const { gasDues } = computeGasBreakdown(key);
+  const equalSharePerApt = state.apartments.length > 0 ? equalSplitTotal / state.apartments.length : 0;
+
+  const dues = {};
+  state.apartments.forEach(apt => {
+    let total = 0;
+    CATEGORIES.forEach(c => {
+      const pct = (apt.shares[c] || 0) / 100;
+      total += (totalsByCategory[c] || 0) * pct;
+    });
+    total += gasDues[apt.id] || 0;
+    total += equalSharePerApt;
+    dues[apt.id] = total;
+  });
+  return { dues, totalsByCategory, gasDues, equalSplitTotal, equalSharePerApt };
+}
+
+// ---------- Parking ----------
+const PARKING_AMOUNT = 50;
+const PARKING_BENEFICIARY_APT_ID = 5; // Γεωργουσόπουλος Σ. (Γ1)
+
+function computeParking(key) {
+  const month = ensureMonth(key);
+  const beneficiary = state.apartments.find(a => a.id === PARKING_BENEFICIARY_APT_ID);
+  const { dues } = computeDues(key);
+  const beneficiaryDue = dues[PARKING_BENEFICIARY_APT_ID] || 0;
+  const offsetAmount = Math.min(PARKING_AMOUNT, Math.max(0, beneficiaryDue));
+  const cashRemainder = PARKING_AMOUNT - offsetAmount;
+  return { beneficiary, beneficiaryDue, offsetAmount, cashRemainder, paid: month.parking.paid };
+}
+
+function renderParking() {
+  const key = monthKey(currentMonth);
+  const { beneficiary, beneficiaryDue, paid } = computeParking(key);
+  const diff = beneficiaryDue - PARKING_AMOUNT;
+  const thirdLabel = diff < 0 ? 'Πρέπει να δώσεις σε μετρητά' : 'Σου χρωστάει επιπλέον';
+  const thirdValue = Math.abs(diff);
+  const thirdColor = diff < 0 ? 'var(--red)' : 'var(--teal-dark)';
+  document.getElementById('parkingSummary').innerHTML = `
+    <div class="summary-grid" style="margin-bottom:12px">
+      <div class="summary-box">
+        <div class="label">Μηνιαίο κόστος θέσης</div>
+        <div class="value">€${PARKING_AMOUNT.toFixed(2)}</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">Οφειλή κοινοχρήστων ${beneficiary ? beneficiary.tenant : ''}</div>
+        <div class="value">€${beneficiaryDue.toFixed(2)}</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">${thirdLabel}</div>
+        <div class="value" style="color:${thirdColor}">${thirdValue < 0.005 ? '€0.00' : '€' + thirdValue.toFixed(2)}</div>
+      </div>
+    </div>
+    <span class="badge ${paid ? 'paid' : 'unpaid'}" style="cursor:pointer" title="Πάτα για αλλαγή κατάστασης" onclick="toggleParkingPaid()">${paid ? 'Εξοφλήθηκε' : 'Ανεξόφλητο'}</span>
+  `;
+}
+
+function toggleParkingPaid() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.parking.paid = !month.parking.paid;
+  renderParking();
+  saveData('parkingSaveStatus');
+}
+
+function renderDashboard() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  const { dues, totalsByCategory, equalSplitTotal } = computeDues(key);
+  const totalExpenses = Object.values(totalsByCategory).reduce((a,b)=>a+b, 0) + (Number(month.gas.totalBill) || 0) + equalSplitTotal;
+  const totalCollected = state.apartments.reduce((sum, apt) => {
+    const p = month.payments[apt.id];
+    return sum + (p && p.status === 'paid' ? dues[apt.id] : 0);
+  }, 0);
+  const pendingCount = state.apartments.filter(apt => !month.payments[apt.id] || month.payments[apt.id].status !== 'paid').length;
+
+  const hasGasLine = Number(month.gas.totalBill) > 0;
+  const totalLineCount = month.expenses.length + (hasGasLine ? 1 : 0);
+  const unpaidLineCount = month.expenses.filter(e => !e.paid).length + (hasGasLine && !month.gas.paid ? 1 : 0);
+
+  document.getElementById('summaryGrid').innerHTML = `
+    <div class="summary-box"><div class="label">Σύνολο εξόδων μήνα</div><div class="value">€${totalExpenses.toFixed(2)}</div></div>
+    <div class="summary-box"><div class="label">Εισπράχθηκαν από ενοίκους</div><div class="value">€${totalCollected.toFixed(2)}</div></div>
+    <div class="summary-box"><div class="label">Εκκρεμούν ένοικοι</div><div class="value">${pendingCount} / ${state.apartments.length}</div></div>
+    <div class="summary-box clickable" onclick="switchTab('expenses')"><div class="label">Ανεξόφλητα έξοδα</div><div class="value">${unpaidLineCount} / ${totalLineCount}</div></div>
+  `;
+
+  const rows = state.apartments.map(apt => {
+    const payment = month.payments[apt.id] || { status: 'pending' };
+    const due = dues[apt.id] || 0;
+    const badge = payment.status === 'paid'
+      ? `<span class="badge paid" style="cursor:pointer" title="Πάτα για αναίρεση" onclick="markPending(${apt.id})">Πληρώθηκε${payment.method ? ' ('+payment.method+')' : ''}</span>`
+      : `<span class="badge pending">Εκκρεμεί</span>`;
+    const actions = payment.status === 'paid'
+      ? ''
+      : `<button class="action" onclick="markPaid(${apt.id},'Μετρητά')">Μετρητά</button>
+         <button class="action" onclick="markPaid(${apt.id},'IRIS')">IRIS</button>
+         <button class="action secondary" onclick="remind(${apt.id})">Υπενθύμιση</button>`;
+    return `<div class="due-row">
+      <span class="due-name"><span class="apt-badge">${apt.name}</span>${apt.tenant || ''}</span>
+      <div class="due-amount-status">
+        <span class="due-amount">€${due.toFixed(2)}</span>
+        ${badge}
+      </div>
+      ${actions ? `<div class="due-actions">${actions}</div>` : ''}
+    </div>`;
+  }).join('');
+  document.getElementById('duesList').innerHTML = rows;
+}
+
+function isExpenseOverdue(e) {
+  if (!e.dueDate || e.paid) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return new Date(e.dueDate) < today;
+}
+
+function isGasOverdue(month) {
+  if (!month.gas.dueDate || month.gas.paid) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return new Date(month.gas.dueDate) < today;
+}
+
+function formatDueDate(dueDate) {
+  return new Date(dueDate).toLocaleDateString('el-GR');
+}
+
+function renderExpenses() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  const body = document.getElementById('expensesTableBody');
+  const cardsWrap = document.getElementById('expensesCards');
+  const empty = document.getElementById('expensesEmpty');
+  const hasGasLine = Number(month.gas.totalBill) > 0;
+
+  if (month.expenses.length === 0 && !hasGasLine) {
+    body.innerHTML = '';
+    cardsWrap.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  const dueHtml = (e) => e.dueDate
+    ? `<span style="display:block;margin-top:2px;white-space:nowrap;font-size:11px;font-weight:${isExpenseOverdue(e) ? '600' : '400'};color:${isExpenseOverdue(e) ? 'var(--red)' : 'var(--text-muted)'}">(λήξη ${formatDueDate(e.dueDate)})</span>`
+    : '';
+
+  let rows = month.expenses.map((e, idx) => `
+    <tr>
+      <td>${e.category}</td>
+      <td>${e.description}${dueHtml(e)}</td>
+      <td class="amount">€${Number(e.amount).toFixed(2)}</td>
+      <td>${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</td>
+      <td>
+        <span class="badge ${e.paid ? 'paid' : 'unpaid'}" style="cursor:pointer" title="Πάτα για αλλαγή κατάστασης" onclick="toggleExpensePaid(${idx})">${e.paid ? 'Εξοφλήθηκε' : 'Ανεξόφλητο'}</span>
+      </td>
+      <td style="text-align:center">
+        <span style="cursor:pointer; color:var(--red); font-size:16px" title="Διαγραφή" onclick="deleteExpense(${idx})">🗑</span>
+      </td>
+    </tr>
+  `).join('');
+
+  let cards = month.expenses.map((e, idx) => `
+    <div class="exp-card">
+      <div class="exp-card-top">
+        <div>
+          <div class="exp-card-cat">${e.category}</div>
+          <div class="exp-card-desc">${e.description}</div>
+          ${e.dueDate ? `<div class="exp-card-due${isExpenseOverdue(e) ? ' overdue' : ''}">Λήξη: ${formatDueDate(e.dueDate)}</div>` : ''}
+        </div>
+        <div class="exp-card-amount">€${Number(e.amount).toFixed(2)}</div>
+      </div>
+      <div class="exp-card-meta">
+        <span class="exp-card-split">${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</span>
+        <div class="exp-card-actions">
+          <span class="badge ${e.paid ? 'paid' : 'unpaid'}" style="cursor:pointer" title="Πάτα για αλλαγή κατάστασης" onclick="toggleExpensePaid(${idx})">${e.paid ? 'Εξοφλήθηκε' : 'Ανεξόφλητο'}</span>
+          <span style="cursor:pointer; color:var(--red); font-size:17px" title="Διαγραφή" onclick="deleteExpense(${idx})">🗑</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  if (hasGasLine) {
+    const gasDueHtml = month.gas.dueDate
+      ? `<span style="display:block;margin-top:2px;white-space:nowrap;font-size:11px;font-weight:${isGasOverdue(month) ? '600' : '400'};color:${isGasOverdue(month) ? 'var(--red)' : 'var(--text-muted)'}">(λήξη ${formatDueDate(month.gas.dueDate)})</span>`
+      : '';
+    rows += `
+      <tr>
+        <td>Φυσικό αέριο</td>
+        <td>Λογαριασμός φυσικού αερίου${gasDueHtml}</td>
+        <td class="amount">€${Number(month.gas.totalBill).toFixed(2)}</td>
+        <td>Χιλιοστά</td>
+        <td>
+          <span class="badge ${month.gas.paid ? 'paid' : 'unpaid'}" style="cursor:pointer" title="Πάτα για αλλαγή κατάστασης" onclick="toggleGasPaid()">${month.gas.paid ? 'Εξοφλήθηκε' : 'Ανεξόφλητο'}</span>
+        </td>
+        <td></td>
+      </tr>
+    `;
+    cards += `
+      <div class="exp-card">
+        <div class="exp-card-top">
+          <div>
+            <div class="exp-card-cat">Φυσικό αέριο</div>
+            <div class="exp-card-desc">Λογαριασμός φυσικού αερίου${gasDueHtml}</div>
+          </div>
+          <div class="exp-card-amount">€${Number(month.gas.totalBill).toFixed(2)}</div>
+        </div>
+        <div class="exp-card-meta">
+          <span class="exp-card-split">Χιλιοστά</span>
+          <div class="exp-card-actions">
+            <span class="badge ${month.gas.paid ? 'paid' : 'unpaid'}" style="cursor:pointer" title="Πάτα για αλλαγή κατάστασης" onclick="toggleGasPaid()">${month.gas.paid ? 'Εξοφλήθηκε' : 'Ανεξόφλητο'}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  body.innerHTML = rows;
+  cardsWrap.innerHTML = cards;
+}
+
+function toggleGasPaid() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.gas.paid = !month.gas.paid;
+  render();
+  saveData('gasSaveStatus');
+}
+
+function renderFixed() {
+  const body = document.getElementById('fixedTableBody');
+  const empty = document.getElementById('fixedEmpty');
+  if (state.fixedExpenses.length === 0) {
+    body.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  body.innerHTML = state.fixedExpenses.map((e, idx) => `
+    <tr>
+      <td>${e.category}</td>
+      <td>${e.description}</td>
+      <td class="amount">€${Number(e.amount).toFixed(2)}</td>
+      <td>${e.splitMode === 'equal' ? 'Εξίσου' : 'Χιλιοστά'}</td>
+      <td><button class="action danger" onclick="deleteFixedExpense(${idx})">Διαγραφή</button></td>
+    </tr>
+  `).join('');
+}
+
+function addFixedExpense() {
+  const category = document.getElementById('fixedCategory').value;
+  const description = document.getElementById('fixedDesc').value.trim();
+  const amount = parseFloat(document.getElementById('fixedAmount').value);
+  const splitMode = document.getElementById('fixedSplitMode').value;
+  if (!description || isNaN(amount) || amount <= 0) {
+    alert('Συμπλήρωσε περιγραφή και έγκυρο ποσό.');
+    return;
+  }
+  state.fixedExpenses.push({ category, description, amount, splitMode });
+  document.getElementById('fixedDesc').value = '';
+  document.getElementById('fixedAmount').value = '';
+  render();
+  saveData('fixedSaveStatus');
+}
+function deleteFixedExpense(idx) {
+  state.fixedExpenses.splice(idx, 1);
+  render();
+  saveData('fixedSaveStatus');
+}
+function applyFixedExpenses() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  let addedCount = 0;
+  state.fixedExpenses.forEach(fe => {
+    const alreadyThere = month.expenses.some(e => e.description === fe.description && e.category === fe.category && e.fromFixed);
+    if (!alreadyThere) {
+      month.expenses.push({ category: fe.category, description: fe.description, amount: fe.amount, splitMode: fe.splitMode, fromFixed: true });
+      addedCount++;
+    }
+  });
+  render();
+  const statusEl = document.getElementById('applyFixedStatus');
+  statusEl.textContent = addedCount > 0 ? `Προστέθηκαν ${addedCount} έξοδα.` : 'Ήταν ήδη όλα προστεθημένα σε αυτόν τον μήνα.';
+  setTimeout(() => statusEl.textContent = '', 3000);
+  saveData();
+}
+
+function computeGasBreakdown(key) {
+  const month = ensureMonth(key);
+  const prevKey = previousMonthKey(new Date(key + '-01'));
+  const prevMonth = state.months[prevKey];
+  const totalBill = Number(month.gas.totalBill) || 0;
+
+  const diffs = {};
+  let totalHours = 0;
+  state.apartments.forEach(apt => {
+    const current = Number(month.gas.readings[apt.id]) || 0;
+    if (!prevMonth) {
+      diffs[apt.id] = 0;
+      return;
+    }
+    const previous = prevMonth.gas ? (Number(prevMonth.gas.readings[apt.id]) || 0) : 0;
+    const diff = Math.max(0, current - previous);
+    diffs[apt.id] = diff;
+    totalHours += diff;
+  });
+
+  const allZero = totalHours === 0;
+  const gasDues = {};
+  const paγioShare = {};
+  const variableShare = {};
+
+  state.apartments.forEach(apt => {
+    const heatingPct = (apt.shares['Θέρμανση'] || 0) / 100;
+    const paγio = totalBill * 0.20 * heatingPct;
+    let variable;
+    if (allZero) {
+      variable = totalBill * 0.80 * heatingPct;
+    } else {
+      variable = totalBill * 0.80 * (diffs[apt.id] / totalHours);
+    }
+    paγioShare[apt.id] = paγio;
+    variableShare[apt.id] = variable;
+    gasDues[apt.id] = paγio + variable;
+  });
+
+  return { diffs, totalHours, allZero, paγioShare, variableShare, gasDues, prevKey, prevMonth };
+}
+
+function renderGas() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  document.getElementById('gasTotalBill').value = month.gas.totalBill || '';
+  document.getElementById('gasDueDate').value = month.gas.dueDate || '';
+
+  const { diffs, allZero, paγioShare, variableShare, gasDues, prevMonth } = computeGasBreakdown(key);
+
+  document.getElementById('gasReadingsList').innerHTML = state.apartments.map(apt => {
+    const prevReading = prevMonth && prevMonth.gas ? (prevMonth.gas.readings[apt.id] || 0) : 0;
+    const currentReading = month.gas.readings[apt.id] || '';
+    return `<div class="reading-row">
+      <div class="reading-meter">Μετρητής ${apt.meterNumber || '—'}</div>
+      <div class="reading-name">
+        <span class="apt-badge">${apt.name}</span>${apt.tenant || ''}
+      </div>
+      <div class="reading-values">
+        <div class="reading-field">
+          <label>Προηγούμενη</label>
+          <div class="static-value">${prevReading}</div>
+        </div>
+        <div class="reading-field">
+          <label>Τρέχουσα</label>
+          <input type="number" step="0.01" value="${currentReading}" onchange="updateGasReading(${apt.id}, this.value)">
+        </div>
+        <div class="reading-diff">Διαφορά<br>${diffs[apt.id].toFixed(2)} ώρες</div>
+      </div>
+    </div>`;
+  }).join('') + (() => {
+    const prevGeneral = prevMonth && prevMonth.gas ? (Number(prevMonth.gas.generalReading) || 0) : 0;
+    const currentGeneral = Number(month.gas.generalReading) || 0;
+    const diffGeneral = Math.max(0, currentGeneral - prevGeneral);
+    return `<div class="reading-row" style="font-weight:600">
+      <div class="reading-name">Γενικός μετρητής</div>
+      <div class="reading-values">
+        <div class="reading-field">
+          <label>Προηγούμενη</label>
+          <div class="static-value">${prevGeneral}</div>
+        </div>
+        <div class="reading-field">
+          <label>Τρέχουσα</label>
+          <input type="number" step="0.01" value="${month.gas.generalReading || ''}" onchange="updateGasGeneralReading(this.value)">
+        </div>
+        <div class="reading-diff">Διαφορά<br>${diffGeneral.toFixed(2)} ώρες</div>
+      </div>
+    </div>`;
+  })();
+
+  document.getElementById('gasModeNote').textContent = allZero
+    ? 'Δεν υπάρχουν ενδείξεις κατανάλωσης αυτόν τον μήνα — όλο το ποσό μοιράζεται με τα χιλιοστά θέρμανσης.'
+    : 'Το μεταβλητό μέρος μοιράζεται ανάλογα με τις ώρες κατανάλωσης κάθε διαμερίσματος.';
+
+  document.getElementById('gasBreakdownBody').innerHTML = state.apartments.map(apt => `
+    <tr>
+      <td>${apt.name}</td>
+      <td class="amount">€${paγioShare[apt.id].toFixed(2)}</td>
+      <td class="amount">€${variableShare[apt.id].toFixed(2)}</td>
+      <td class="amount">€${gasDues[apt.id].toFixed(2)}</td>
+    </tr>
+  `).join('');
+}
+
+function updateGasReading(aptId, value) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.gas.readings[aptId] = parseFloat(value) || 0;
+  renderGas();
+}
+function updateGasGeneralReading(value) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.gas.generalReading = parseFloat(value) || 0;
+  renderGas();
+}
+function updateGasTotal(value) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.gas.totalBill = parseFloat(value) || 0;
+}
+function updateGasDueDate(value) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.gas.dueDate = value || null;
+}
+function loadJuneBaseline() {
+  const key = '2026-06';
+  const month = ensureMonth(key);
+  month.gas.readings = { 1: 6593, 2: 2690, 3: 7615, 4: 1017, 5: 6491, 6: 6627, 7: 118 };
+  render();
+  saveData('gasSaveStatus');
+}
+
+function zeroGasReadings() {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  const prevKey = previousMonthKey(new Date(key + '-01'));
+  const prevMonth = state.months[prevKey];
+  state.apartments.forEach(apt => {
+    const prevReading = prevMonth && prevMonth.gas ? (Number(prevMonth.gas.readings[apt.id]) || 0) : 0;
+    month.gas.readings[apt.id] = prevReading;
+  });
+  month.gas.generalReading = prevMonth && prevMonth.gas ? (Number(prevMonth.gas.generalReading) || 0) : 0;
+  renderGas();
+  renderDashboard();
+  saveData('gasSaveStatus');
+}
+
+function saveGas() {
+  render();
+  saveData('gasSaveStatus');
+}
+
+function renderApartments() {
+  const head = document.getElementById('apartmentsHead');
+  head.innerHTML = `<tr><th>Διαμέρισμα</th><th>Ένοικος</th><th>Αρ. μετρητή</th>${CATEGORIES.map(c=>`<th>${c} %</th>`).join('')}</tr>`;
+
+  const body = document.getElementById('apartmentsTableBody');
+  body.innerHTML = state.apartments.map(apt => `
+    <tr>
+      <td><input type="text" value="${apt.name}" onchange="updateApt(${apt.id},'name',this.value)"></td>
+      <td><input type="text" value="${apt.tenant}" placeholder="όνομα ενοίκου" onchange="updateApt(${apt.id},'tenant',this.value)"></td>
+      <td><input type="number" value="${apt.meterNumber || ''}" style="width:70px" onchange="updateApt(${apt.id},'meterNumber',this.value)"></td>
+      ${CATEGORIES.map(c => `<td><input type="number" step="0.01" value="${apt.shares[c]}" onchange="updateShare(${apt.id},'${c}',this.value)"></td>`).join('')}
+    </tr>
+  `).join('');
+
+  // append totals row
+  const totals = CATEGORIES.map(c => state.apartments.reduce((s,a)=>s + Number(a.shares[c]||0), 0));
+  body.innerHTML += `<tr style="font-weight:600">
+    <td colspan="3">Σύνολο</td>
+    ${totals.map(t => `<td style="color:${Math.abs(t-100)>0.01 ? 'var(--red)' : 'var(--teal-dark)'}">${t.toFixed(1)}%</td>`).join('')}
+  </tr>`;
+}
+
+function renderMaintenance() {
+  const body = document.getElementById('maintenanceTableBody');
+  const empty = document.getElementById('maintenanceEmpty');
+  if (state.maintenance.length === 0) {
+    body.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const sorted = [...state.maintenance].sort((a,b) => new Date(a.date) - new Date(b.date));
+  body.innerHTML = sorted.map((m) => {
+    const idx = state.maintenance.indexOf(m);
+    const d = new Date(m.date);
+    const overdue = d < today;
+    const daysDiff = Math.round((d - today) / (1000*60*60*24));
+    const statusText = overdue ? `<span class="overdue">Έληξε ${Math.abs(daysDiff)} μέρες πριν</span>` : `σε ${daysDiff} μέρες`;
+    return `<tr>
+      <td>${m.name}</td>
+      <td>${d.toLocaleDateString('el-GR')}</td>
+      <td>${statusText}</td>
+      <td><button class="action secondary" onclick="completeMaintenance(${idx})">Ολοκληρώθηκε</button>
+          <button class="action danger" onclick="deleteMaintenance(${idx})">Διαγραφή</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- Actions ----------
+function markPaid(aptId, method) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.payments[aptId] = { status: 'paid', method, date: new Date().toISOString() };
+  render();
+  saveData();
+}
+function markPending(aptId) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.payments[aptId] = { status: 'pending' };
+  render();
+  saveData();
+}
+function remind(aptId) {
+  const apt = state.apartments.find(a => a.id === aptId);
+  const { dues } = computeDues(monthKey(currentMonth));
+  const amount = (dues[aptId] || 0).toFixed(2);
+  const text = encodeURIComponent(`Καλησπέρα, υπενθύμιση για τα κοινόχρηστα του μήνα ${monthLabel(currentMonth)}: €${amount}. Ευχαριστώ!`);
+  window.open(`viber://forward?text=${text}`, '_blank');
+}
+
+function addExpense() {
+  const category = document.getElementById('expCategory').value;
+  const description = document.getElementById('expDesc').value.trim();
+  const amount = parseFloat(document.getElementById('expAmount').value);
+  const splitMode = document.getElementById('expSplitMode').value;
+  const dueDate = document.getElementById('expDueDate').value || null;
+  if (!description || isNaN(amount) || amount <= 0) {
+    alert('Συμπλήρωσε περιγραφή και έγκυρο ποσό.');
+    return;
+  }
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.expenses.push({ category, description, amount, splitMode, dueDate });
+  document.getElementById('expDesc').value = '';
+  document.getElementById('expAmount').value = '';
+  document.getElementById('expDueDate').value = '';
+  render();
+  saveData('expSaveStatus');
+}
+function deleteExpense(idx) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.expenses.splice(idx, 1);
+  render();
+  saveData('expSaveStatus');
+}
+function toggleExpensePaid(idx) {
+  const key = monthKey(currentMonth);
+  const month = ensureMonth(key);
+  month.expenses[idx].paid = !month.expenses[idx].paid;
+  render();
+  saveData('expSaveStatus');
+}
+
+function updateApt(id, field, value) {
+  const apt = state.apartments.find(a => a.id === id);
+  apt[field] = value;
+}
+function updateShare(id, category, value) {
+  const apt = state.apartments.find(a => a.id === id);
+  apt.shares[category] = parseFloat(value) || 0;
+  renderApartments();
+}
+function saveApartments() {
+  renderDashboard();
+  saveData('aptSaveStatus');
+}
+
+function addMaintenance() {
+  const name = document.getElementById('maintName').value.trim();
+  const date = document.getElementById('maintDate').value;
+  const repeat = parseInt(document.getElementById('maintRepeat').value) || null;
+  if (!name || !date) { alert('Συμπλήρωσε εργασία και ημερομηνία.'); return; }
+  state.maintenance.push({ name, date, repeatMonths: repeat });
+  document.getElementById('maintName').value = '';
+  document.getElementById('maintDate').value = '';
+  document.getElementById('maintRepeat').value = '';
+  render();
+  saveData('maintSaveStatus');
+}
+function completeMaintenance(idx) {
+  const m = state.maintenance[idx];
+  if (m.repeatMonths) {
+    const next = new Date(m.date);
+    next.setMonth(next.getMonth() + m.repeatMonths);
+    m.date = next.toISOString().split('T')[0];
+  } else {
+    state.maintenance.splice(idx, 1);
+  }
+  render();
+  saveData('maintSaveStatus');
+}
+function deleteMaintenance(idx) {
+  state.maintenance.splice(idx, 1);
+  render();
+  saveData('maintSaveStatus');
+}
+
+// ---------- Init ----------
+loadData();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed', err));
+  });
+}
+</script>
+</body>
+</html>
