@@ -147,10 +147,13 @@
 
   .due-row {
     display: flex; flex-direction: column; gap: 10px;
-    padding: 16px 4px; border-bottom: 1px solid var(--border);
+    padding: 16px 10px; border-bottom: 1px solid var(--border);
+    border-left: 3px solid var(--amber);
   }
+  .due-row.status-paid { border-left-color: var(--teal); }
   .due-row:last-child { border-bottom: none; }
   .due-name { font-weight: 600; font-size: 17px; line-height: 1.3; display: flex; align-items: center; gap: 8px; }
+  .due-row.status-paid .due-name { color: var(--text-muted); font-weight: 500; }
   .apt-badge {
     display: inline-flex; align-items: center; justify-content: center;
     width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
@@ -163,6 +166,7 @@
   .due-amount { font-weight: 700; font-size: 19px; color: var(--teal-dark); white-space: nowrap; }
   .due-actions { display: flex; gap: 8px; width: 100%; }
   .due-actions button.action { flex: 1; min-width: 0; padding: 10px 6px; font-size: 13px; }
+  .due-status-slot { display: flex; align-items: center; }
 
   #expensesTableWrap { display: none; }
   #expensesCards { display: block; }
@@ -185,15 +189,15 @@
     #expensesTableWrap { display: block; }
     #expensesCards { display: none; }
     .due-row {
-      flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px;
+      display: grid; grid-template-columns: minmax(0,1fr) 70px 120px minmax(0,230px);
+      align-items: center; column-gap: 16px; min-height: 54px;
     }
-    .due-name { flex: 1; font-size: 15px; }
-    .due-amount-status {
-      width: auto; display: grid; grid-template-columns: 90px 170px; column-gap: 14px; justify-content: start;
-    }
+    .due-name { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .due-amount-status { display: contents; }
     .due-amount { text-align: right; }
-    .due-actions { width: auto; }
+    .due-actions { width: 100%; }
     .due-actions button.action { flex: none; }
+    .due-status-slot { display: flex; align-items: center; justify-content: center; width: 100%; grid-column: 3 / span 2; }
   }
 
   .settings-section { margin-bottom: 24px; }
@@ -655,21 +659,22 @@ function renderDashboard() {
   const rows = state.apartments.map(apt => {
     const payment = month.payments[apt.id] || { status: 'pending' };
     const due = dues[apt.id] || 0;
-    const badge = payment.status === 'paid'
+    const isPaid = payment.status === 'paid';
+    const badge = isPaid
       ? `<span class="badge paid" style="cursor:pointer" title="Πάτα για αναίρεση" onclick="markPending(${apt.id})">Πληρώθηκε${payment.method ? ' ('+payment.method+')' : ''}</span>`
       : `<span class="badge pending">Εκκρεμεί</span>`;
-    const actions = payment.status === 'paid'
+    const actions = isPaid
       ? ''
       : `<button class="action" onclick="markPaid(${apt.id},'Μετρητά')">Μετρητά</button>
          <button class="action" onclick="markPaid(${apt.id},'IRIS')">IRIS</button>
          <button class="action secondary" onclick="remind(${apt.id})">Υπενθύμιση</button>`;
-    return `<div class="due-row">
+    return `<div class="due-row status-${isPaid ? 'paid' : 'pending'}">
       <span class="due-name"><span class="apt-badge">${apt.name}</span>${apt.tenant || ''}</span>
       <div class="due-amount-status">
         <span class="due-amount">€${due.toFixed(2)}</span>
-        ${badge}
+        ${isPaid ? '' : badge}
       </div>
-      ${actions ? `<div class="due-actions">${actions}</div>` : ''}
+      ${isPaid ? `<div class="due-status-slot">${badge}</div>` : `<div class="due-actions">${actions}</div>`}
     </div>`;
   }).join('');
   document.getElementById('duesList').innerHTML = rows;
