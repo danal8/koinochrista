@@ -471,6 +471,19 @@ function monthKey(d) {
 function monthLabel(d) {
   return d.toLocaleDateString('el-GR', { month: 'long', year: 'numeric' });
 }
+const MONTH_GENITIVE = {
+  'Ιανουάριος': 'Ιανουαρίου', 'Φεβρουάριος': 'Φεβρουαρίου', 'Μάρτιος': 'Μαρτίου',
+  'Απρίλιος': 'Απριλίου', 'Μάιος': 'Μαΐου', 'Ιούνιος': 'Ιουνίου',
+  'Ιούλιος': 'Ιουλίου', 'Αύγουστος': 'Αυγούστου', 'Σεπτέμβριος': 'Σεπτεμβρίου',
+  'Οκτώβριος': 'Οκτωβρίου', 'Νοέμβριος': 'Νοεμβρίου', 'Δεκέμβριος': 'Δεκεμβρίου'
+};
+function monthLabelGenitive(d) {
+  const parts = d.toLocaleDateString('el-GR', { month: 'long', year: 'numeric' }).split(' ');
+  const monthNom = parts[0];
+  const year = parts[1] || '';
+  const monthGen = MONTH_GENITIVE[monthNom] || monthNom;
+  return `${monthGen} ${year}`.trim();
+}
 function ensureMonth(key) {
   if (!state.months[key]) {
     state.months[key] = { expenses: [], payments: {}, gas: { readings: {}, generalReading: 0, totalBill: 0, paid: false } };
@@ -1078,7 +1091,9 @@ function remind(aptId) {
   const apt = state.apartments.find(a => a.id === aptId);
   const { dues } = computeDues(monthKey(currentMonth));
   const amount = (dues[aptId] || 0).toFixed(2);
-  const text = encodeURIComponent(`Καλησπέρα, υπενθύμιση για τα κοινόχρηστα του μήνα ${monthLabel(currentMonth)}: €${amount}. Ευχαριστώ!`);
+  const greeting = new Date().getHours() < 12 ? 'Καλημέρα' : 'Καλησπέρα';
+  const monthGenitive = monthLabelGenitive(currentMonth);
+  const text = encodeURIComponent(`${greeting}, υπενθύμιση για τα κοινόχρηστα του μήνα ${monthGenitive}: €${amount}. Ευχαριστώ!`);
   window.open(`viber://forward?text=${text}`, '_blank');
 }
 
