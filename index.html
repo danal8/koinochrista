@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Κοινόχρηστα">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --teal-dark: #4A7C6E;
@@ -687,7 +687,7 @@ function computeDues(key) {
 
 // ---------- Parking ----------
 const PARKING_AMOUNT = 50;
-const PARKING_BENEFICIARY_APT_ID = 5; // Γεωργουσόπουλος Σ. (Γ1)
+const PARKING_BENEFICIARY_APT_ID = 5;
 
 function computeParking(key) {
   const month = ensureMonth(key);
@@ -1304,7 +1304,7 @@ const ownerEmail = 'giorgosdanalatos@gmail.com';
 document.getElementById('sendLink').onclick = async function () {
   this.disabled = true;
   try {
-    const { error } = await sb.auth.signInWithOtp({email:ownerEmail, options:{shouldCreateUser:false,emailRedirectTo:location.origin + location.pathname}});
+    const { error } = await sb.auth.signInWithOtp({email:ownerEmail, options:{shouldCreateUser:false,emailRedirectTo:'https://danal8.github.io/koinochrista/'}});
     if (error) throw error;
     notice.textContent = 'Έλεγξε το email σου. Μπορείς να αντιγράψεις τον σύνδεσμο εδώ ή να πληκτρολογήσεις τον κωδικό μιας χρήσης.';
   } catch (error) {
@@ -1322,10 +1322,11 @@ document.getElementById('verifyEmail').onclick = async function () {
       if (url.origin !== SUPABASE_URL || url.pathname !== '/auth/v1/verify' || url.searchParams.get('type') !== 'magiclink' || !url.searchParams.get('token')) throw Error();
       params = {token_hash:url.searchParams.get('token'),type:'magiclink'};
     }
-    const {error} = await sb.auth.verifyOtp(params);
+    const {data,error} = await sb.auth.verifyOtp(params);
     if (error) throw error;
     field.value = '';
-  } catch { notice.textContent = 'Ο σύνδεσμος ή ο κωδικός δεν έγινε δεκτός. Χρησιμοποίησε το πιο πρόσφατο email.'; }
+    await showSession(data.session);
+  } catch (error) { notice.textContent = 'Η επιβεβαίωση απέτυχε: ' + (error.message || error.name); }
 };
 const passwordDialog = document.getElementById('passwordDialog');
 const newField = document.getElementById('newPassword');
