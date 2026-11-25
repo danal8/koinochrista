@@ -1267,32 +1267,37 @@ const login = document.getElementById("login");
 const privateApp = document.getElementById("privateApp");
 const notice = document.getElementById("notice");
 let generation = 0;
-async function openAccount(ticket) {
-  try {
-    const { data: { user }, error } = await sb.auth.getUser();
-    if (error || user?.id !== owner) throw Error();
-    const result = await sb.from(TABLE).select("content").eq("id",1).single();
-    if (result.error) throw result.error;
-    if (ticket !== generation) return;
-    Object.assign(state,JSON.parse(result.data.content));
-    render();
-    login.hidden = true;
-    privateApp.hidden = false;
-  } catch {
-    if (ticket === generation) notice.textContent = "Δεν ήταν δυνατή η πρόσβαση στα κοινόχρηστα.";
-  }
-}
-sb.auth.onAuthStateChange((event, session) => {
-  if (!session || session.user.id !== owner) {
-    generation++;
+let loading = false;
+async function showSession(session) {
+  if (session?.user?.id !== owner) {
+    ++generation;
+    loading = false;
     if (!privateApp.hidden) location.reload();
     privateApp.hidden = true;
     login.hidden = false;
     if (session) notice.textContent = "Ο λογαριασμός δεν έχει πρόσβαση.";
-  } else if (privateApp.hidden) {
-    const ticket = ++generation;
-    setTimeout(() => openAccount(ticket),0);
+    return;
   }
+  if (loading || !privateApp.hidden) return;
+  loading = true;
+  const ticket = generation;
+  notice.textContent = "Φόρτωση κοινοχρήστων…";
+  try {
+    const {data,error} = await sb.from(TABLE).select("content").eq("id",1).single();
+    if (ticket !== generation) return;
+    if (error) throw error;
+    Object.assign(state,JSON.parse(data.content));
+    render();
+    privateApp.hidden = false;
+    login.hidden = true;
+  } catch (error) {
+    if (ticket === generation) notice.textContent = "Η συνεδρία είναι ενεργή, αλλά η φόρτωση απέτυχε: " + error.message;
+  } finally { if (ticket === generation) loading = false; }
+}
+sb.auth.onAuthStateChange((_event, session) => { setTimeout(() => showSession(session),0); });
+sb.auth.getSession().then(({data,error}) => {
+  if (error) notice.textContent = error.message;
+  else if (data.session) showSession(data.session);
 });
 const passwordField = document.getElementById("password");
 const ownerEmail = 'giorgosdanalatos@gmail.com';
@@ -1351,8 +1356,9 @@ login.addEventListener("submit", async event => {
   event.preventDefault();
   notice.textContent = "Σύνδεση…";
   try {
-    const {error} = await sb.auth.signInWithPassword({email:login.elements.email.value.trim(),password:login.elements.password.value});
+    const {data,error} = await sb.auth.signInWithPassword({email:login.elements.email.value.trim(),password:login.elements.password.value});
     if (error) throw error;
+    await showSession(data.session);
     passwordField.value = "";
   } catch (error) {
     if (error.code === "invalid_credentials") {
