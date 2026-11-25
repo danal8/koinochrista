@@ -324,9 +324,10 @@ td { padding: 10px 8px; }
   .due-actions button.action { font-size: 12px; padding: 10px 3px; }
 }
 
-</style>
+[hidden]{display:none!important} #login{max-width:24rem;margin:10vh auto;padding:1.75rem;background:white;border-radius:12px;box-shadow:0 3px 20px #0002} #login input{display:block;width:100%;margin:.4rem 0 1rem} #login button{padding:.6rem 1rem}</style>
 </head>
 <body>
+<form id="login"><h1>Κοινόχρηστα</h1><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Κωδικός<input id="password" type="password" autocomplete="current-password" required></label><button>Σύνδεση</button><p id="notice" role="status"></p></form><div id="privateApp" hidden>
 
 <header>
   <h1>🏢 Κοινόχρηστα Πολυκατοικίας</h1>
@@ -335,7 +336,7 @@ td { padding: 10px 8px; }
     <span id="monthLabel">—</span>
     <button onclick="changeMonth(1)">›</button>
   </div>
-</header>
+<button id="logout" type="button">Αποσύνδεση</button></header>
 
 <div class="tabs">
   <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Πίνακας μήνα</button>
@@ -546,7 +547,7 @@ td { padding: 10px 8px; }
     </div>
   </div>
 
-</main>
+</main></div>
 
 <script>
 // ---------- Supabase ----------
@@ -557,31 +558,7 @@ const TABLE = 'koinochrista_data'; // single-row JSON table, same pattern as oth
 
 const CATEGORIES = ['Κοινόχρηστα', 'Ασανσέρ', 'Θέρμανση'];
 
-let state = {
-  apartments: [
-    { id: 1, name: 'Α1', tenant: 'Ασημακόπουλος', meterNumber: 2, shares: { 'Κοινόχρηστα': 15.2, 'Ασανσέρ': 6.2, 'Θέρμανση': 18.6 } },
-    { id: 2, name: 'Α2', tenant: 'Μιτάκη Έφη', meterNumber: 3, shares: { 'Κοινόχρηστα': 9.8, 'Ασανσέρ': 3.8, 'Θέρμανση': 10.6 } },
-    { id: 3, name: 'Β1', tenant: 'Στατζίδου Χρ.', meterNumber: 4, shares: { 'Κοινόχρηστα': 15.2, 'Ασανσέρ': 12.3, 'Θέρμανση': 12.7 } },
-    { id: 4, name: 'Β2', tenant: 'Λαζάρη Χρ.', meterNumber: 5, shares: { 'Κοινόχρηστα': 9.8, 'Ασανσέρ': 7.7, 'Θέρμανση': 7.2 } },
-    { id: 5, name: 'Γ1', tenant: 'Γεωργουσόπουλος Σ.', meterNumber: 6, shares: { 'Κοινόχρηστα': 15.2, 'Ασανσέρ': 18.5, 'Θέρμανση': 12.3 } },
-    { id: 6, name: 'Δ', tenant: 'Δαναλάτος Γ.', meterNumber: 1, shares: { 'Κοινόχρηστα': 25.0, 'Ασανσέρ': 40.0, 'Θέρμανση': 31.0 } },
-    { id: 7, name: 'Γ2', tenant: 'Κουφής Διον.', meterNumber: 7, shares: { 'Κοινόχρηστα': 9.8, 'Ασανσέρ': 11.5, 'Θέρμανση': 7.6 } }
-  ],
-  fixedExpenses: [], // [{category, description, amount}]
-  months: {
-    '2026-06': {
-      expenses: [],
-      payments: {},
-      gas: {
-        readings: { 1: 6593, 2: 2690, 3: 7615, 4: 1017, 5: 6491, 6: 6627, 7: 118 },
-        generalReading: 0,
-        totalBill: 0,
-        paid: false
-      }
-    }
-  }, // Ιούνιος 2026 είναι ο πρώτος μήνας εγγραφών — δεν υπάρχει προηγούμενος μήνας, οπότε η διαφορά υπολογίζεται ως 0
-  maintenance: []
-};
+let state = {apartments: [], fixedExpenses: [], months: {}, maintenance: []};
 
 let currentMonth = new Date();
 currentMonth.setDate(1);
@@ -631,20 +608,8 @@ function previousMonthKey(d) {
 }
 
 // ---------- Load / Save ----------
-async function loadData() {
-  try {
-    const { data, error } = await sb.from(TABLE).select('*').eq('id', 1).single();
-    if (data && data.content) {
-      const loaded = JSON.parse(data.content);
-      state = Object.assign(state, loaded);
-    }
-  } catch (e) {
-    console.log('Δεν βρέθηκαν αποθηκευμένα δεδομένα, ξεκινάμε με το προεπιλεγμένο σχήμα.', e);
-  }
-  render();
-}
-
 async function saveData(statusElId) {
+  if (document.getElementById("privateApp").hidden) return;
   const statusEl = statusElId ? document.getElementById(statusElId) : null;
   if (statusEl) statusEl.textContent = 'Αποθήκευση...';
   try {
@@ -1297,7 +1262,52 @@ function deleteMaintenance(idx) {
 }
 
 // ---------- Init ----------
-loadData();
+const owner = "15bf2893-b196-4e8e-b1b1-b178a812e0b9";
+const login = document.getElementById("login");
+const privateApp = document.getElementById("privateApp");
+const notice = document.getElementById("notice");
+let generation = 0;
+async function openAccount(ticket) {
+  try {
+    const { data: { user }, error } = await sb.auth.getUser();
+    if (error || user?.id !== owner) throw Error();
+    const result = await sb.from(TABLE).select("content").eq("id",1).single();
+    if (result.error) throw result.error;
+    if (ticket !== generation) return;
+    Object.assign(state,JSON.parse(result.data.content));
+    render();
+    login.hidden = true;
+    privateApp.hidden = false;
+  } catch {
+    if (ticket === generation) notice.textContent = "Δεν ήταν δυνατή η πρόσβαση στα κοινόχρηστα.";
+  }
+}
+sb.auth.onAuthStateChange((event, session) => {
+  if (!session || session.user.id !== owner) {
+    generation++;
+    if (!privateApp.hidden) location.reload();
+    privateApp.hidden = true;
+    login.hidden = false;
+    if (session) notice.textContent = "Ο λογαριασμός δεν έχει πρόσβαση.";
+  } else if (privateApp.hidden) {
+    const ticket = ++generation;
+    setTimeout(() => openAccount(ticket),0);
+  }
+});
+login.addEventListener("submit", async event => {
+  event.preventDefault();
+  notice.textContent = "Σύνδεση…";
+  try {
+    const {error} = await sb.auth.signInWithPassword({email:login.elements.email.value.trim(),password:login.elements.password.value});
+    if (error) throw error;
+  } catch {
+    notice.textContent = "Η σύνδεση απέτυχε. Ελέγξτε τα στοιχεία σας.";
+  } finally { login.elements.password.value = ""; }
+});
+document.getElementById("logout").onclick = async () => {
+  const {error} = await sb.auth.signOut({scope:"local"});
+  if (error) alert("Η αποσύνδεση απέτυχε. Δοκιμάστε ξανά.");
+};
 
 // Swipe left/right on mobile to change month
 (function setupSwipe() {
