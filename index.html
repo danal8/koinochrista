@@ -336,7 +336,7 @@ td { padding: 10px 8px; }
     <span id="monthLabel">—</span>
     <button onclick="changeMonth(1)">›</button>
   </div>
-<button id="setPassword" type="button">Αλλαγή κωδικού</button><button id="logout" type="button">Αποσύνδεση</button></header><dialog id="passwordDialog"><form id="newPasswordForm"><h2>Αλλαγή κωδικού</h2><p>Ο νέος κωδικός θα ισχύει και στο MediPrice.</p><label>Νέος κωδικός <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label><p><label><input id="showNewPassword" type="checkbox"> Εμφάνιση κωδικού</label></p><button>Αποθήκευση</button> <button type="button" id="cancelPassword">Κλείσιμο</button><p id="passwordStatus" role="status"></p></form></dialog>
+</header><dialog id="passwordDialog"><form id="newPasswordForm"><h2>Αλλαγή κωδικού</h2><p>Ο νέος κωδικός θα ισχύει και στο MediPrice.</p><label>Νέος κωδικός <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label><p><label><input id="showNewPassword" type="checkbox"> Εμφάνιση κωδικού</label></p><button>Αποθήκευση</button> <button type="button" id="cancelPassword">Κλείσιμο</button><p id="passwordStatus" role="status"></p></form></dialog>
 
 <div class="tabs">
   <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Πίνακας μήνα</button>
@@ -513,6 +513,7 @@ td { padding: 10px 8px; }
         <span class="save-status" id="aptSaveStatus"></span>
       </div>
     </div>
+    <div class="settings-section"><h3>Λογαριασμός</h3><div class="card" style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="setPassword" type="button">Αλλαγή κωδικού</button><button class="btn" id="logout" type="button">Αποσύνδεση</button></div></div>
   </div>
 
   <div id="tab-maintenance" class="hidden">
