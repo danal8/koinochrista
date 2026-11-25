@@ -327,7 +327,7 @@ td { padding: 10px 8px; }
 [hidden]{display:none!important} #login{max-width:24rem;margin:10vh auto;padding:1.75rem;background:white;border-radius:12px;box-shadow:0 3px 20px #0002} #login input{display:block;width:100%;margin:.4rem 0 1rem} #login button{padding:.6rem 1rem}</style>
 </head>
 <body>
-<form id="login"><h1>Κοινόχρηστα</h1><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Κωδικός<input id="password" type="password" autocomplete="current-password" required></label><button>Σύνδεση</button><p id="notice" role="status"></p></form><div id="privateApp" hidden>
+<form id="login"><h1>Κοινόχρηστα</h1><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Κωδικός<input id="password" type="password" autocomplete="current-password" required></label><label style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem"><input style="width:auto;margin:0" id="showPassword" type="checkbox" aria-controls="password">Εμφάνιση κωδικού</label><button>Σύνδεση</button><p id="notice" role="status"></p></form><div id="privateApp" hidden>
 
 <header>
   <h1>🏢 Κοινόχρηστα Πολυκατοικίας</h1>
@@ -1294,6 +1294,11 @@ sb.auth.onAuthStateChange((event, session) => {
     setTimeout(() => openAccount(ticket),0);
   }
 });
+const passwordField = document.getElementById("password");
+const visibility = document.getElementById("showPassword");
+visibility.addEventListener("change", () => {
+  passwordField.type = visibility.checked ? "text" : "password";
+});
 login.addEventListener("submit", async event => {
   event.preventDefault();
   notice.textContent = "Σύνδεση…";
@@ -1302,7 +1307,7 @@ login.addEventListener("submit", async event => {
     if (error) throw error;
   } catch {
     notice.textContent = "Η σύνδεση απέτυχε. Ελέγξτε τα στοιχεία σας.";
-  } finally { login.elements.password.value = ""; }
+  } finally { passwordField.value = ""; visibility.checked = false; passwordField.type = "password"; }
 });
 document.getElementById("logout").onclick = async () => {
   const {error} = await sb.auth.signOut({scope:"local"});
