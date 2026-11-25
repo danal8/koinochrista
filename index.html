@@ -1305,9 +1305,16 @@ login.addEventListener("submit", async event => {
   try {
     const {error} = await sb.auth.signInWithPassword({email:login.elements.email.value.trim(),password:login.elements.password.value});
     if (error) throw error;
-  } catch {
-    notice.textContent = "Η σύνδεση απέτυχε. Ελέγξτε τα στοιχεία σας.";
-  } finally { passwordField.value = ""; visibility.checked = false; passwordField.type = "password"; }
+    passwordField.value = "";
+  } catch (error) {
+    if (error.code === "invalid_credentials") {
+      notice.textContent = "Το Supabase απέρριψε το email ή τον κωδικό. Χρησιμοποίησε τα ίδια στοιχεία με το MediPrice.";
+    } else if (error.status === 429) {
+      notice.textContent = "Πολλές προσπάθειες σύνδεσης. Δοκίμασε ξανά σε λίγο.";
+    } else {
+      notice.textContent = "Η υπηρεσία σύνδεσης δεν ολοκλήρωσε το αίτημα (" + (error.code || error.name || "σφάλμα δικτύου") + ").";
+    }
+  }
 });
 document.getElementById("logout").onclick = async () => {
   const {error} = await sb.auth.signOut({scope:"local"});
