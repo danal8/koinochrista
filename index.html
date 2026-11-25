@@ -553,7 +553,7 @@ td { padding: 10px 8px; }
 // ---------- Supabase ----------
 const SUPABASE_URL = 'https://odtbtugzilxsfqxlpofq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_ch-7C1ihpZRrxEhXFqV1xA_hXPwq61S';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth:{storageKey:"koinochrista-auth-v1", persistSession:true, detectSessionInUrl:true, flowType:"implicit"}});
 const TABLE = 'koinochrista_data'; // single-row JSON table, same pattern as other apps
 
 const CATEGORIES = ['Κοινόχρηστα', 'Ασανσέρ', 'Θέρμανση'];
@@ -1405,11 +1405,6 @@ document.getElementById("logout").onclick = async () => {
   });
 })();
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed', err));
-  });
-}
 </script>
 </body>
 </html>
