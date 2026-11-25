@@ -324,7 +324,15 @@ td { padding: 10px 8px; }
   .due-actions button.action { font-size: 12px; padding: 10px 3px; }
 }
 
-[hidden]{display:none!important} #login{max-width:24rem;margin:10vh auto;padding:1.75rem;background:white;border-radius:12px;box-shadow:0 3px 20px #0002} #login input{display:block;width:100%;margin:.4rem 0 1rem} #login button{padding:.6rem 1rem}</style>
+[hidden]{display:none!important} #login{max-width:24rem;margin:10vh auto;padding:1.75rem;background:white;border-radius:12px;box-shadow:0 3px 20px #0002} #login input{display:block;width:100%;margin:.4rem 0 1rem} #login button{padding:.6rem 1rem}@media (max-width: 767px) {
+  .due-row { display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "resident amount" "status amount" "actions actions"; align-items: center; gap: 4px 8px; }
+  .due-name { grid-area: resident; overflow-wrap: anywhere; min-width: 0; }
+  .due-amount-status { display: contents; }
+  .due-amount { grid-area: amount; }
+  .due-amount-status > .pending, .due-status-slot { grid-area: status; justify-self: start; width: auto; }
+  .due-actions { grid-area: actions; margin-top: 6px; border-top: 1px solid var(--border); padding-top: 10px; }
+}
+</style>
 </head>
 <body>
 <form id="login" hidden><h1>Κοινόχρηστα</h1><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Κωδικός<input id="password" type="password" autocomplete="current-password" required></label><label style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem"><input style="width:auto;margin:0" id="showPassword" type="checkbox" aria-controls="password">Εμφάνιση κωδικού</label><button>Σύνδεση</button><button id="sendLink" type="button">Είσοδος μέσω email</button><details><summary>Έχω σύνδεσμο ή κωδικό από το email</summary><label>Σύνδεσμος ή κωδικός μιας χρήσης<input id="emailProof" type="password" autocomplete="off"></label><button type="button" id="verifyEmail">Είσοδος</button></details><p id="notice" role="status"></p></form><div id="privateApp" hidden>
@@ -784,7 +792,7 @@ function renderDashboard() {
     const isPaid = payment.status === 'paid';
     const badge = isPaid
       ? `<span class="badge paid" style="cursor:pointer" title="Πάτα για αναίρεση" onclick="markPending(${apt.id})">Πληρώθηκε${payment.method ? ' ('+payment.method+')' : ''}</span>`
-      : `<span class="badge pending">Εκκρεμεί</span>`;
+      : `<span class="badge pending">Ανεξόφλητο</span>`;
     const actions = isPaid
       ? ''
       : `<button class="action" onclick="markPaid(${apt.id},'Μετρητά')">Μετρητά</button>
