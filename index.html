@@ -327,7 +327,7 @@ td { padding: 10px 8px; }
 [hidden]{display:none!important} #login{max-width:24rem;margin:10vh auto;padding:1.75rem;background:white;border-radius:12px;box-shadow:0 3px 20px #0002} #login input{display:block;width:100%;margin:.4rem 0 1rem} #login button{padding:.6rem 1rem}</style>
 </head>
 <body>
-<form id="login"><h1>Κοινόχρηστα</h1><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Κωδικός<input id="password" type="password" autocomplete="current-password" required></label><label style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem"><input style="width:auto;margin:0" id="showPassword" type="checkbox" aria-controls="password">Εμφάνιση κωδικού</label><button>Σύνδεση</button><p id="notice" role="status"></p></form><div id="privateApp" hidden>
+<form id="login"><h1>Κοινόχρηστα</h1><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Κωδικός<input id="password" type="password" autocomplete="current-password" required></label><label style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem"><input style="width:auto;margin:0" id="showPassword" type="checkbox" aria-controls="password">Εμφάνιση κωδικού</label><button>Σύνδεση</button><button id="sendLink" type="button">Είσοδος μέσω email</button><details><summary>Έχω σύνδεσμο ή κωδικό από το email</summary><label>Σύνδεσμος ή κωδικός μιας χρήσης<input id="emailProof" type="password" autocomplete="off"></label><button type="button" id="verifyEmail">Είσοδος</button></details><p id="notice" role="status"></p></form><div id="privateApp" hidden>
 
 <header>
   <h1>🏢 Κοινόχρηστα Πολυκατοικίας</h1>
@@ -1295,6 +1295,33 @@ sb.auth.onAuthStateChange((event, session) => {
   }
 });
 const passwordField = document.getElementById("password");
+const ownerEmail = 'giorgosdanalatos@gmail.com';
+document.getElementById('sendLink').onclick = async function () {
+  this.disabled = true;
+  try {
+    const { error } = await sb.auth.signInWithOtp({email:ownerEmail, options:{shouldCreateUser:false,emailRedirectTo:location.origin + location.pathname}});
+    if (error) throw error;
+    notice.textContent = 'Έλεγξε το email σου. Μπορείς να αντιγράψεις τον σύνδεσμο εδώ ή να πληκτρολογήσεις τον κωδικό μιας χρήσης.';
+  } catch (error) {
+    notice.textContent = error.status === 429 ? 'Περίμενε ένα λεπτό πριν ζητήσεις νέο email.' : 'Η αποστολή email απέτυχε.';
+  } finally { this.disabled = false; }
+};
+document.getElementById('verifyEmail').onclick = async function () {
+  const field = document.getElementById('emailProof');
+  const proof = field.value.trim();
+  try {
+    let params;
+    if (/^\d{6,10}$/.test(proof)) params = {email:ownerEmail,token:proof,type:'email'};
+    else {
+      const url = new URL(proof);
+      if (url.origin !== SUPABASE_URL || url.pathname !== '/auth/v1/verify' || url.searchParams.get('type') !== 'magiclink' || !url.searchParams.get('token')) throw Error();
+      params = {token_hash:url.searchParams.get('token'),type:'magiclink'};
+    }
+    const {error} = await sb.auth.verifyOtp(params);
+    if (error) throw error;
+    field.value = '';
+  } catch { notice.textContent = 'Ο σύνδεσμος ή ο κωδικός δεν έγινε δεκτός. Χρησιμοποίησε το πιο πρόσφατο email.'; }
+};
 const visibility = document.getElementById("showPassword");
 visibility.addEventListener("change", () => {
   passwordField.type = visibility.checked ? "text" : "password";
