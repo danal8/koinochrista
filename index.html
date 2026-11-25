@@ -336,7 +336,7 @@ td { padding: 10px 8px; }
     <span id="monthLabel">—</span>
     <button onclick="changeMonth(1)">›</button>
   </div>
-<button id="logout" type="button">Αποσύνδεση</button></header>
+<button id="setPassword" type="button">Αλλαγή κωδικού</button><button id="logout" type="button">Αποσύνδεση</button></header><dialog id="passwordDialog"><form id="newPasswordForm"><h2>Αλλαγή κωδικού</h2><p>Ο νέος κωδικός θα ισχύει και στο MediPrice.</p><label>Νέος κωδικός <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label><p><label><input id="showNewPassword" type="checkbox"> Εμφάνιση κωδικού</label></p><button>Αποθήκευση</button> <button type="button" id="cancelPassword">Κλείσιμο</button><p id="passwordStatus" role="status"></p></form></dialog>
 
 <div class="tabs">
   <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Πίνακας μήνα</button>
@@ -1321,6 +1321,27 @@ document.getElementById('verifyEmail').onclick = async function () {
     if (error) throw error;
     field.value = '';
   } catch { notice.textContent = 'Ο σύνδεσμος ή ο κωδικός δεν έγινε δεκτός. Χρησιμοποίησε το πιο πρόσφατο email.'; }
+};
+const passwordDialog = document.getElementById('passwordDialog');
+const newField = document.getElementById('newPassword');
+const passwordStatus = document.getElementById('passwordStatus');
+document.getElementById('setPassword').onclick = () => {
+  document.getElementById('newPasswordForm').reset();
+  newField.type = 'password';
+  passwordStatus.textContent = '';
+  passwordDialog.showModal();
+};
+document.getElementById('cancelPassword').onclick = () => passwordDialog.close();
+passwordDialog.onclose = () => { newField.value = ''; };
+document.getElementById('showNewPassword').onchange = e => { newField.type = e.target.checked ? 'text' : 'password'; };
+document.getElementById('newPasswordForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    const {error} = await sb.auth.updateUser({password:newField.value});
+    if (error) throw error;
+    newField.value = '';
+    passwordStatus.textContent = 'Ο νέος κωδικός αποθηκεύτηκε.';
+  } catch (error) { passwordStatus.textContent = 'Η αλλαγή απέτυχε: ' + error.message; }
 };
 const visibility = document.getElementById("showPassword");
 visibility.addEventListener("change", () => {
